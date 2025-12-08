@@ -1,0 +1,12 @@
+szallas_api="apify_api_UhfRyfuloypbyQyKzIAqDbooH7akQ42qGAUR"
+szallas_json="https://api.apify.com/v2/datasets/4bFdhv5sP7roR9W3E/items?token=apify_api_UhfRyfuloypbyQyKzIAqDbooH7akQ42qGAUR"
+
+
+
+PORT=3000
+HOST=localhost
+
+DBHOST="localhost"
+DBNAME="szallasfoglalov2"
+DBUSER="root"
+DBPASS=""
