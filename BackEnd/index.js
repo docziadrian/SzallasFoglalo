@@ -25,8 +25,8 @@ app.use(
 );
 
 // routes
-//const users = require("./modules/users");
-//app.use("/users", users);
+const users = require("./modules/users");
+app.use("/users", users);
 
 const accomodations = require("./modules/accomodations");
 app.use("/accomodations", accomodations);

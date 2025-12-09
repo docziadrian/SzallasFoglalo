@@ -1,63 +1,35 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, retry } from 'rxjs';
-import { environment } from '../environments/environment';
+import axios from 'axios';
+import { SessionService } from './session.service';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class AuthService {
-  private tokenName = environment.tokenName;
+  private apiUrl = 'http://localhost:3333/users';
 
-  private isLoggedIn = new BehaviorSubject<boolean>(this.hasToken());
-  isLoggedIn$ = this.isLoggedIn.asObservable();
+  constructor(private sessionService: SessionService) {}
 
-  constructor() {}
-
-  hasToken(): boolean {
-    const session = sessionStorage.getItem(this.tokenName);
-    if (session) return true;
-
-    const local = localStorage.getItem(this.tokenName);
-    if (local) {
-      sessionStorage.setItem(this.tokenName, local);
-      return true;
-    }
-
-    return false;
+  register(name: string, email: string, password: string, confirm: string) {
+    return axios.post(
+      `${this.apiUrl}/registration`,
+      { name, email, password, confirm },
+      { withCredentials: true }
+    );
   }
 
-  storeUser(token: string) {
-    localStorage.setItem(this.tokenName, token);
-  }
-
-  login(token: string) {
-    sessionStorage.setItem(this.tokenName, token);
-    this.isLoggedIn.next(true);
+  login(email: string, password: string) {
+    return axios.post(
+      `${this.apiUrl}/login`,
+      { email, password },
+      { withCredentials: true }
+    );
   }
 
   logout() {
-    sessionStorage.removeItem(this.tokenName);
-    localStorage.removeItem(this.tokenName);
-    this.isLoggedIn.next(false);
+    this.sessionService.clearUser();
+    return Promise.resolve();
   }
 
-  loggedUser() {
-    const token = sessionStorage.getItem(this.tokenName);
-
-    if (token) {
-      return JSON.parse(token);
-    }
-
-    return null;
-  }
-
-  isAdmin(): boolean {
-    const user = this.loggedUser();
-    if (user) return user[0].role === 'admin';
-    return false;
-  }
-
-  isLoggedUser(): boolean {
-    return this.isLoggedIn.value;
+  me() {
+    return Promise.resolve(this.sessionService.getUser());
   }
 }
