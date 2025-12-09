@@ -31,6 +31,9 @@ app.use(
 const accomodations = require("./modules/accomodations");
 app.use("/accomodations", accomodations);
 
+const bookingsRouter = require("./modules/bookings");
+app.use("/bookings", bookingsRouter);
+
 // listening
 app.listen(port, () => {
   console.log(`Server listening on port ${port}...`);

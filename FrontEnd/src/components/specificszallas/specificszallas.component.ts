@@ -5,15 +5,44 @@ import { FormsModule } from '@angular/forms';
 import { Accomodation } from '../../interfaces/accomodations';
 import { AccomodationImage } from '../../interfaces/accomodation_images';
 import { ApiService } from '../../services/api.service';
+import { FullCalendarModule } from '@fullcalendar/angular';
+import { CalendarOptions, DateSelectArg, EventInput } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
 @Component({
   selector: 'app-specificszallas',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FullCalendarModule],
   templateUrl: './specificszallas.component.html',
   styleUrl: './specificszallas.component.scss',
 })
 export class SpecificszallasComponent implements OnInit {
+  calendarOptions: CalendarOptions = {
+    initialView: 'dayGridMonth',
+    plugins: [dayGridPlugin, interactionPlugin],
+    selectable: true,
+    selectMirror: true,
+    selectOverlap: false,
+    unselectAuto: false,
+    locale: 'hu',
+    headerToolbar: {
+      left: 'prev,next',
+      center: 'title',
+      right: '',
+    },
+    validRange: {
+      start: new Date().toISOString().split('T')[0],
+    },
+    dayCellClassNames: (arg) => {
+      return this.getDayCellClass(arg.date);
+    },
+    dateClick: (info) => {
+      this.handleDateClick(info.date);
+    },
+    events: [],
+  };
+
   urlId: string = '';
   szallasData: Accomodation | null = null;
   images: AccomodationImage[] = [];
@@ -27,6 +56,13 @@ export class SpecificszallasComponent implements OnInit {
   showGallery: boolean = false;
   currentImageIndex: number = 0;
 
+  // Naptár popup
+  showCalendarPopup: boolean = false;
+  selectingCheckIn: boolean = true;
+  tempCheckInDate: Date | null = null;
+  tempCheckOutDate: Date | null = null;
+  bookedDates: string[] = [];
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -35,19 +71,29 @@ export class SpecificszallasComponent implements OnInit {
 
   ngOnInit(): void {
     const today = new Date();
-    this.checkInDate = today.toISOString().split('T')[0];
+    today.setHours(0, 0, 0, 0);
+    this.checkInDate = 'Kérlek válassz!';
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    this.checkOutDate = tomorrow.toISOString().split('T')[0];
+    this.checkOutDate = 'Kérlek válassz!';
 
     this.route.params.subscribe((params) => {
       this.urlId = params['id'];
       if (this.urlId) {
         this.loadAccomodationData();
+        this.loadBookedDates();
       } else {
         this.router.navigate(['/']);
       }
     });
+  }
+
+  formatDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   async loadAccomodationData() {
@@ -84,28 +130,175 @@ export class SpecificszallasComponent implements OnInit {
     }
   }
 
+  async loadBookedDates() {
+    try {
+      const response = await this.apiservice.selectAccomodationBookings(
+        parseInt(this.urlId, 10)
+      );
+
+      if (response.status === 200 && response.data) {
+        this.bookedDates = [];
+
+        response.data.forEach((booking: any) => {
+          const startDate = new Date(booking.startDate);
+          const endDate = new Date(booking.endDate);
+
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(0, 0, 0, 0);
+
+          let currentDate = new Date(startDate);
+          while (currentDate < endDate) {
+            this.bookedDates.push(this.formatDate(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+        });
+
+        console.log('Booked dates loaded:', this.bookedDates);
+        this.updateCalendarEvents();
+      }
+    } catch (error) {
+      console.error('Error loading booked dates:', error);
+      this.bookedDates = [];
+      this.updateCalendarEvents();
+    }
+  }
+
+  updateCalendarEvents() {
+    const events: EventInput[] = this.bookedDates.map((date) => ({
+      start: date,
+      display: 'background',
+      backgroundColor: '#ef4444',
+      classNames: ['booked-date'],
+    }));
+
+    this.calendarOptions.events = events;
+  }
+
+  getDayCellClass(date: Date): string[] {
+    const localDate = new Date(date);
+    localDate.setHours(0, 0, 0, 0);
+    const dateStr = this.formatDate(localDate);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = this.formatDate(today);
+
+    if (dateStr < todayStr) {
+      return ['past-date'];
+    }
+
+    if (this.bookedDates.includes(dateStr)) {
+      return ['booked-date'];
+    }
+
+    // Highlight selected range
+    if (this.tempCheckInDate && this.tempCheckOutDate) {
+      const tempCheckInStr = this.formatDate(this.tempCheckInDate);
+      const tempCheckOutStr = this.formatDate(this.tempCheckOutDate);
+
+      if (dateStr >= tempCheckInStr && dateStr < tempCheckOutStr) {
+        return ['selected-range'];
+      }
+    }
+
+    return ['available-date'];
+  }
+
+  handleDateClick(selectedDate: Date) {
+    const localDate = new Date(selectedDate);
+    localDate.setHours(0, 0, 0, 0);
+    const selectedDateStr = this.formatDate(localDate);
+
+    // Check if date is booked
+    if (this.bookedDates.includes(selectedDateStr)) {
+      alert('Ez a dátum már foglalt!');
+      return;
+    }
+
+    if (this.selectingCheckIn) {
+      // Select check-in date
+      this.tempCheckInDate = localDate;
+      this.checkInDate = selectedDateStr;
+      this.selectingCheckIn = false;
+      this.calendarOptions = { ...this.calendarOptions };
+    } else {
+      // Select check-out date
+      const checkInDate = this.tempCheckInDate!;
+
+      if (localDate <= checkInDate) {
+        alert('A távozás dátuma az érkezés után kell legyen!');
+        return;
+      }
+
+      // Check maximum 12 nights
+      const diffTime = localDate.getTime() - checkInDate.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 12) {
+        alert('Maximum 12 éjszakát lehet foglalni!');
+        return;
+      }
+
+      // Check if any date in range is booked
+      let currentDate = new Date(checkInDate);
+      while (currentDate < localDate) {
+        const currentDateStr = this.formatDate(currentDate);
+        if (this.bookedDates.includes(currentDateStr)) {
+          alert('A kiválasztott időszakban van foglalt dátum!');
+          return;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      this.tempCheckOutDate = localDate;
+      this.checkOutDate = selectedDateStr;
+      this.closeCalendarPopup();
+      this.calculatePrice();
+    }
+  }
+
+  openCalendarPopup() {
+    this.showCalendarPopup = true;
+    this.selectingCheckIn = true;
+
+    // Load existing dates if available
+    if (this.checkInDate) {
+      const checkIn = new Date(this.checkInDate);
+      checkIn.setHours(0, 0, 0, 0);
+      this.tempCheckInDate = checkIn;
+    } else {
+      this.tempCheckInDate = null;
+    }
+
+    if (this.checkOutDate) {
+      const checkOut = new Date(this.checkOutDate);
+      checkOut.setHours(0, 0, 0, 0);
+      this.tempCheckOutDate = checkOut;
+    } else {
+      this.tempCheckOutDate = null;
+    }
+
+    // Force calendar refresh to show selected range
+    this.calendarOptions = { ...this.calendarOptions };
+  }
+
+  closeCalendarPopup() {
+    this.showCalendarPopup = false;
+    this.selectingCheckIn = true;
+  }
+
   calculatePrice() {
     if (this.checkInDate && this.checkOutDate && this.szallasData) {
       const checkIn = new Date(this.checkInDate);
       const checkOut = new Date(this.checkOutDate);
-      const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+      checkIn.setHours(0, 0, 0, 0);
+      checkOut.setHours(0, 0, 0, 0);
+
+      const diffTime = checkOut.getTime() - checkIn.getTime();
       this.nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       this.totalPrice =
         this.nights * this.guests * this.szallasData.priceforone;
     }
-  }
-
-  onDateChange() {
-    const checkIn = new Date(this.checkInDate);
-    const checkOut = new Date(this.checkOutDate);
-
-    if (checkOut <= checkIn) {
-      const newCheckOut = new Date(checkIn);
-      newCheckOut.setDate(newCheckOut.getDate() + 1);
-      this.checkOutDate = newCheckOut.toISOString().split('T')[0];
-    }
-
-    this.calculatePrice();
   }
 
   onGuestsChange() {
@@ -136,16 +329,40 @@ export class SpecificszallasComponent implements OnInit {
     }
   }
 
-  makeReservation() {
-    console.log('Foglalási adatok:', {
-      accomodation: this.szallasData?.name,
-      checkIn: this.checkInDate,
-      checkOut: this.checkOutDate,
-      guests: this.guests,
-      nights: this.nights,
+  async makeReservation() {
+    if (!this.szallasData) {
+      alert('Hiba történt a szállás adatok betöltése során!');
+      return;
+    }
+
+    // TODO: Replace with actual user ID from authentication
+    const userId = 1;
+
+    const bookingData = {
+      userId: userId,
+      accommodationId: parseInt(this.urlId, 10),
+      startDate: this.checkInDate,
+      endDate: this.checkOutDate,
+      persons: this.guests,
       totalPrice: this.totalPrice,
-    });
-    // TODO: Reservation API hívás
+      status: 'confirmed',
+    };
+
+    console.log('Creating booking:', bookingData);
+
+    try {
+      const response = await this.apiservice.createBooking(bookingData);
+
+      if (response.status === 201) {
+        alert('Foglalás sikeresen létrehozva!');
+        await this.loadBookedDates();
+      } else {
+        alert('Hiba történt a foglalás során: ' + response.message);
+      }
+    } catch (error) {
+      console.error('Booking error:', error);
+      alert('Hiba történt a foglalás során!');
+    }
   }
 
   get mainImage(): AccomodationImage | undefined {
@@ -156,13 +373,9 @@ export class SpecificszallasComponent implements OnInit {
     return this.images.slice(1, 4);
   }
 
-  get minCheckInDate(): string {
-    return new Date().toISOString().split('T')[0];
-  }
-
-  get minCheckOutDate(): string {
-    const checkIn = new Date(this.checkInDate);
-    checkIn.setDate(checkIn.getDate() + 1);
-    return checkIn.toISOString().split('T')[0];
+  get calendarTitle(): string {
+    return this.selectingCheckIn
+      ? 'Válassz érkezési dátumot'
+      : 'Válassz távozási dátumot (max 12 éjszaka)';
   }
 }

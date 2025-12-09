@@ -142,6 +142,41 @@ export class ApiService {
     }
   }
 
+  async selectAccomodationBookings(
+    accommodationId: number
+  ): Promise<ApiResponse> {
+    try {
+      const response = await axios.get(
+        `${this.SERVER}/bookings/accommodation/${accommodationId}`
+      );
+      return {
+        status: 200,
+        data: response.data,
+      };
+    } catch (error: any) {
+      return {
+        status: 500,
+        message: 'Nem sikerült a foglalások betöltése!',
+      };
+    }
+  }
+
+  async createBooking(bookingData: any): Promise<ApiResponse> {
+    try {
+      const response = await axios.post(`${this.SERVER}/bookings`, bookingData);
+      return {
+        status: 201,
+        data: response.data,
+        message: 'Foglalás sikeresen létrehozva!',
+      };
+    } catch (error: any) {
+      return {
+        status: 500,
+        message: 'Nem sikerült a foglalás létrehozása!',
+      };
+    }
+  }
+
   // POST new record to 'table'  -> POST http://localhost:3000/users
 
   async insert(table: string, data: any) {

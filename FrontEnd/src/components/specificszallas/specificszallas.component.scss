@@ -1,0 +1,29 @@
+::ng-deep {
+  .available-date {
+    background-color: #22c55e !important;
+    cursor: pointer;
+  }
+
+  .booked-date {
+    background-color: #ef4444 !important;
+    cursor: not-allowed;
+  }
+
+  .past-date {
+    background-color: #00000023 !important;
+    cursor: not-allowed;
+  }
+
+  .selected-range {
+    background-color: #dfe20e !important;
+  }
+
+  .fc-day:hover:not(.past-date):not(.booked-date) {
+    opacity: 0.8;
+  }
+
+  .fc-daygrid-day-number {
+    color: white;
+    font-weight: bold;
+  }
+}
