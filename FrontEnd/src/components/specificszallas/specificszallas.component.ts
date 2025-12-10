@@ -21,10 +21,7 @@ export class SpecificszallasComponent implements OnInit {
   calendarOptions: CalendarOptions = {
     initialView: 'dayGridMonth',
     plugins: [dayGridPlugin, interactionPlugin],
-    selectable: true,
-    selectMirror: true,
-    selectOverlap: false,
-    unselectAuto: false,
+    selectable: false,
     locale: 'hu',
     headerToolbar: {
       left: 'prev,next',
@@ -33,9 +30,10 @@ export class SpecificszallasComponent implements OnInit {
     },
     validRange: {
       start: new Date().toISOString().split('T')[0],
+      end: this.getMaxDate(),
     },
-    dayCellClassNames: (arg) => {
-      return this.getDayCellClass(arg.date);
+    dayCellContent: (arg) => {
+      return this.getDayCellContent(arg);
     },
     dateClick: (info) => {
       this.handleDateClick(info.date);
@@ -46,6 +44,7 @@ export class SpecificszallasComponent implements OnInit {
   urlId: string = '';
   szallasData: Accomodation | null = null;
   images: AccomodationImage[] = [];
+  availability: Map<string, any> = new Map();
 
   checkInDate: string = '';
   checkOutDate: string = '';
@@ -56,12 +55,10 @@ export class SpecificszallasComponent implements OnInit {
   showGallery: boolean = false;
   currentImageIndex: number = 0;
 
-  // Naptár popup
   showCalendarPopup: boolean = false;
   selectingCheckIn: boolean = true;
   tempCheckInDate: Date | null = null;
   tempCheckOutDate: Date | null = null;
-  bookedDates: string[] = [];
 
   constructor(
     private route: ActivatedRoute,
@@ -70,23 +67,25 @@ export class SpecificszallasComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    this.checkInDate = 'Kérlek válassz!';
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    this.checkOutDate = 'Kérlek válassz!';
+    this.checkInDate = 'Kérlek válassz dátumot!';
+    this.checkOutDate = 'Kérlek válassz dátumot!';
 
     this.route.params.subscribe((params) => {
       this.urlId = params['id'];
       if (this.urlId) {
         this.loadAccomodationData();
-        this.loadBookedDates();
+        this.loadAvailability();
       } else {
         this.router.navigate(['/']);
       }
     });
+  }
+
+  getMaxDate(): string {
+    const today = new Date();
+    const maxDate = new Date(today);
+    maxDate.setFullYear(maxDate.getFullYear() + 1);
+    return this.formatDate(maxDate);
   }
 
   formatDate(date: Date): string {
@@ -105,7 +104,6 @@ export class SpecificszallasComponent implements OnInit {
       if (response.status === 200 && response.data) {
         this.szallasData = response.data;
         await this.loadImages();
-        this.calculatePrice();
       } else {
         console.log('Nincs ilyen szállás...');
         this.router.navigate(['/']);
@@ -123,85 +121,116 @@ export class SpecificszallasComponent implements OnInit {
       );
       if (response.status === 200 && response.data) {
         this.images = response.data;
-        console.log('Images loaded:', this.images.length);
       }
     } catch (error) {
       console.error('Error loading images:', error);
     }
   }
 
-  async loadBookedDates() {
+  async loadAvailability() {
     try {
-      const response = await this.apiservice.selectAccomodationBookings(
-        parseInt(this.urlId, 10)
+      const today = this.formatDate(new Date());
+      const maxDate = this.getMaxDate();
+
+      const response = await this.apiservice.selectAccomodationAvailability(
+        parseInt(this.urlId, 10),
+        today,
+        maxDate
       );
 
       if (response.status === 200 && response.data) {
-        this.bookedDates = [];
-
-        response.data.forEach((booking: any) => {
-          const startDate = new Date(booking.startDate);
-          const endDate = new Date(booking.endDate);
-
-          startDate.setHours(0, 0, 0, 0);
-          endDate.setHours(0, 0, 0, 0);
-
-          let currentDate = new Date(startDate);
-          while (currentDate < endDate) {
-            this.bookedDates.push(this.formatDate(currentDate));
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
+        this.availability.clear();
+        response.data.forEach((day: any) => {
+          this.availability.set(day.date.split('T')[0], {
+            reserved: day.reserved_rooms,
+            max: day.maxRooms,
+            available: day.available_rooms,
+          });
         });
-
-        console.log('Booked dates loaded:', this.bookedDates);
         this.updateCalendarEvents();
       }
     } catch (error) {
-      console.error('Error loading booked dates:', error);
-      this.bookedDates = [];
-      this.updateCalendarEvents();
+      console.error('Error loading availability:', error);
     }
   }
 
   updateCalendarEvents() {
-    const events: EventInput[] = this.bookedDates.map((date) => ({
-      start: date,
-      display: 'background',
-      backgroundColor: '#ef4444',
-      classNames: ['booked-date'],
-    }));
-
-    this.calendarOptions.events = events;
+    this.calendarOptions = { ...this.calendarOptions };
   }
 
-  getDayCellClass(date: Date): string[] {
-    const localDate = new Date(date);
-    localDate.setHours(0, 0, 0, 0);
-    const dateStr = this.formatDate(localDate);
+  getDayCellContent(arg: any) {
+    const dateStr = this.formatDate(arg.date);
+    const avail = this.availability.get(dateStr);
+    const today = this.formatDate(new Date());
+    const isToday = dateStr === today;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = this.formatDate(today);
+    if (!avail) return { html: arg.dayNumberText };
 
-    if (dateStr < todayStr) {
-      return ['past-date'];
+    let icon = '';
+    let color = '';
+    let borderStyle = '';
+    let textColor = '#1f2937';
+
+    if (avail.available === 0) {
+      icon = '🔴';
+      color = '#fca5a5';
+    } else if (avail.available <= 2) {
+      icon = '🟡';
+      color = '#fde047';
+    } else {
+      icon = '🟢';
+      color = '#86efac';
     }
 
-    if (this.bookedDates.includes(dateStr)) {
-      return ['booked-date'];
+    const checkInStr = this.tempCheckInDate
+      ? this.formatDate(this.tempCheckInDate)
+      : null;
+    const checkOutStr = this.tempCheckOutDate
+      ? this.formatDate(this.tempCheckOutDate)
+      : null;
+
+    if (checkInStr && dateStr === checkInStr) {
+      color = '#fb923c';
+      borderStyle = 'border: 3px solid #ea580c;';
+      textColor = '#ffffff';
+    } else if (checkOutStr && dateStr === checkOutStr) {
+      color = '#fb923c';
+      borderStyle = 'border: 3px solid #ea580c;';
+      textColor = '#ffffff';
+    } else if (
+      checkInStr &&
+      checkOutStr &&
+      dateStr > checkInStr &&
+      dateStr < checkOutStr
+    ) {
+      color = '#fb923c';
+      textColor = '#ffffff';
+    } else if (checkInStr && !checkOutStr && dateStr > checkInStr) {
+      color = '#fed7aa';
     }
 
-    // Highlight selected range
-    if (this.tempCheckInDate && this.tempCheckOutDate) {
-      const tempCheckInStr = this.formatDate(this.tempCheckInDate);
-      const tempCheckOutStr = this.formatDate(this.tempCheckOutDate);
-
-      if (dateStr >= tempCheckInStr && dateStr < tempCheckOutStr) {
-        return ['selected-range'];
-      }
+    if (isToday && !borderStyle) {
+      borderStyle = 'border: 3px solid #ffff;';
     }
 
-    return ['available-date'];
+    return {
+      html: `
+        <div style="background: ${color}; padding: 4px; border-radius: 4px; height: 100%; ${borderStyle}">
+          <div style="font-weight: bold; color: ${textColor};">${
+        arg.dayNumberText
+      }</div>
+          ${
+            isToday && !checkInStr
+              ? '<div style="font-size: 9px; color: #ffff; font-weight: bold;">MAI NAP</div>'
+              : ''
+          }
+          <div style="font-size: 20px; margin-top: 4px;">${icon}</div>
+          <div style="font-size: 11px; margin-top: 2px; color: ${textColor}; font-weight: 600;">${
+        avail.available
+      }/${avail.max}</div>
+        </div>
+      `,
+    };
   }
 
   handleDateClick(selectedDate: Date) {
@@ -209,20 +238,19 @@ export class SpecificszallasComponent implements OnInit {
     localDate.setHours(0, 0, 0, 0);
     const selectedDateStr = this.formatDate(localDate);
 
-    // Check if date is booked
-    if (this.bookedDates.includes(selectedDateStr)) {
-      alert('Ez a dátum már foglalt!');
+    const avail = this.availability.get(selectedDateStr);
+
+    if (!avail || avail.available === 0) {
+      alert('Erre a napra nincs szabad szoba!');
       return;
     }
 
     if (this.selectingCheckIn) {
-      // Select check-in date
       this.tempCheckInDate = localDate;
       this.checkInDate = selectedDateStr;
       this.selectingCheckIn = false;
-      this.calendarOptions = { ...this.calendarOptions };
+      this.updateCalendarEvents();
     } else {
-      // Select check-out date
       const checkInDate = this.tempCheckInDate!;
 
       if (localDate <= checkInDate) {
@@ -230,7 +258,6 @@ export class SpecificszallasComponent implements OnInit {
         return;
       }
 
-      // Check maximum 12 nights
       const diffTime = localDate.getTime() - checkInDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -239,12 +266,13 @@ export class SpecificszallasComponent implements OnInit {
         return;
       }
 
-      // Check if any date in range is booked
       let currentDate = new Date(checkInDate);
       while (currentDate < localDate) {
         const currentDateStr = this.formatDate(currentDate);
-        if (this.bookedDates.includes(currentDateStr)) {
-          alert('A kiválasztott időszakban van foglalt dátum!');
+        const dayAvail = this.availability.get(currentDateStr);
+
+        if (!dayAvail || dayAvail.available === 0) {
+          alert('A kiválasztott időszakban nincs minden napra szabad szoba!');
           return;
         }
         currentDate.setDate(currentDate.getDate() + 1);
@@ -252,17 +280,29 @@ export class SpecificszallasComponent implements OnInit {
 
       this.tempCheckOutDate = localDate;
       this.checkOutDate = selectedDateStr;
-      this.closeCalendarPopup();
       this.calculatePrice();
+      this.selectingCheckIn = true;
+      this.updateCalendarEvents();
+      this.closeCalendarPopup();
     }
+  }
+
+  resetSelection() {
+    this.tempCheckInDate = null;
+    this.tempCheckOutDate = null;
+    this.checkInDate = 'Kérlek válassz dátumot!';
+    this.checkOutDate = 'Kérlek válassz dátumot!';
+    this.selectingCheckIn = true;
+    this.nights = 0;
+    this.totalPrice = 0;
+    this.calendarOptions = { ...this.calendarOptions };
   }
 
   openCalendarPopup() {
     this.showCalendarPopup = true;
     this.selectingCheckIn = true;
 
-    // Load existing dates if available
-    if (this.checkInDate) {
+    if (this.checkInDate !== 'Kérlek válassz dátumot!') {
       const checkIn = new Date(this.checkInDate);
       checkIn.setHours(0, 0, 0, 0);
       this.tempCheckInDate = checkIn;
@@ -270,15 +310,15 @@ export class SpecificszallasComponent implements OnInit {
       this.tempCheckInDate = null;
     }
 
-    if (this.checkOutDate) {
+    if (this.checkOutDate !== 'Kérlek válassz dátumot!') {
       const checkOut = new Date(this.checkOutDate);
       checkOut.setHours(0, 0, 0, 0);
       this.tempCheckOutDate = checkOut;
+      //this.closeCalendarPopup();
     } else {
       this.tempCheckOutDate = null;
     }
 
-    // Force calendar refresh to show selected range
     this.calendarOptions = { ...this.calendarOptions };
   }
 
@@ -288,7 +328,11 @@ export class SpecificszallasComponent implements OnInit {
   }
 
   calculatePrice() {
-    if (this.checkInDate && this.checkOutDate && this.szallasData) {
+    if (
+      this.checkInDate !== 'Kérlek válassz dátumot!' &&
+      this.checkOutDate !== 'Kérlek válassz dátumot!' &&
+      this.szallasData
+    ) {
       const checkIn = new Date(this.checkInDate);
       const checkOut = new Date(this.checkOutDate);
       checkIn.setHours(0, 0, 0, 0);
@@ -335,7 +379,14 @@ export class SpecificszallasComponent implements OnInit {
       return;
     }
 
-    // TODO: Replace with actual user ID from authentication
+    if (
+      this.checkInDate === 'Kérlek válassz dátumot!' ||
+      this.checkOutDate === 'Kérlek válassz dátumot!'
+    ) {
+      alert('Kérlek válassz érkezési és távozási dátumot!');
+      return;
+    }
+
     const userId = 1;
 
     const bookingData = {
@@ -348,14 +399,13 @@ export class SpecificszallasComponent implements OnInit {
       status: 'confirmed',
     };
 
-    console.log('Creating booking:', bookingData);
-
     try {
       const response = await this.apiservice.createBooking(bookingData);
 
       if (response.status === 201) {
         alert('Foglalás sikeresen létrehozva!');
-        await this.loadBookedDates();
+        await this.loadAvailability();
+        this.resetSelection();
       } else {
         alert('Hiba történt a foglalás során: ' + response.message);
       }
@@ -377,5 +427,12 @@ export class SpecificszallasComponent implements OnInit {
     return this.selectingCheckIn
       ? 'Válassz érkezési dátumot'
       : 'Válassz távozási dátumot (max 12 éjszaka)';
+  }
+
+  get checkoutInfo(): string {
+    if (this.checkOutDate !== 'Kérlek válassz dátumot!') {
+      return `${this.checkOutDate} nap 12:00-ig el kell hagynod a szállást!`;
+    }
+    return '';
   }
 }

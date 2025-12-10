@@ -1,12 +1,11 @@
-<div class="w-full max-w-lg flex flex-col mx-auto">
-  <h1 class="text-2xl text-center p-4">Regisztráció</h1>
-  <form class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-    <div class="mb-4">
-      <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
+<div class="w-full">
+  <form class="space-y-4">
+    <div>
+      <label class="block text-gray-700 text-sm font-bold mb-2" for="email">
         E-mail cím
       </label>
       <input
-        class="shadow appearance-none rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline placeholder-gray-400"
+        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
         id="email"
         type="email"
         placeholder="Pl.: jani@gmail.com"
@@ -14,12 +13,13 @@
         name="email"
       />
     </div>
-    <div class="mb-4">
+
+    <div>
       <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
         Felhasználónév
       </label>
       <input
-        class="shadow appearance-none rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline placeholder-gray-400"
+        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
         id="username"
         type="text"
         placeholder="Pl.: jani"
@@ -28,25 +28,32 @@
       />
     </div>
 
-    <div class="mb-6">
+    <div>
       <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
         Jelszó
       </label>
       <input
-        class="shadow appearance-none rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline placeholder-gray-400"
+        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
         id="password"
         type="password"
         placeholder="******************"
         [(ngModel)]="registeringUser.password"
         name="password"
       />
+      <p class="text-xs text-gray-500 mt-1">
+        Min. 8 karakter, 1 nagybetű, 1 kisbetű, 1 szám
+      </p>
     </div>
-    <div class="mb-6">
-      <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+
+    <div>
+      <label
+        class="block text-gray-700 text-sm font-bold mb-2"
+        for="passwordConfirm"
+      >
         Jelszó megerősítés
       </label>
       <input
-        class="shadow appearance-none rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline placeholder-gray-400"
+        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
         id="passwordConfirm"
         type="password"
         placeholder="******************"
@@ -54,37 +61,22 @@
         name="confirmPassword"
       />
     </div>
-    <div class="md:flex mb-6">
-      <div class="md:w-1/3"></div>
-      <label class="md:w-2/3 block text-gray-500 font-bold">
-        <input
-          [(ngModel)]="aszfElfogadva"
-          (click)="aszfChanged()"
-          class="mr-2 leading-tight"
-          type="checkbox"
-          name="aszf"
-        />
-        <span class="text-sm"> Elfogadom az ÁSZF -et </span>
+
+    <div class="flex items-center">
+      <label for="aszf" class="text-sm text-gray-700">
+        * Regisztrációddal automatikusan elfogadod az
+        <a href="/aszf" class="text-orange-500 hover:text-orange-600 underline"
+          >ÁSZF</a
+        >-et
       </label>
     </div>
-    <div class="flex items-center justify-between">
-      <button
-        (click)="registrationHandler()"
-        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-        type="button"
-      >
-        Regisztráció
-      </button>
-    </div>
 
-    <div class="flex flex-col mt-5">
-      <p>Már van fiókod?</p>
-      <a
-        class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800 underline"
-        href="/bejelentkezes"
-      >
-        Bejelentkezés
-      </a>
-    </div>
+    <button
+      (click)="registrationHandler()"
+      class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition"
+      type="button"
+    >
+      Regisztráció
+    </button>
   </form>
 </div>

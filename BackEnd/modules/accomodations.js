@@ -1,10 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("./db");
-const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
 
-// Get all accomodations
 router.get("/", (req, res) => {
   const sql = "SELECT * FROM accomodations";
   db.query(sql, (err, results) => {
@@ -16,7 +13,6 @@ router.get("/", (req, res) => {
   });
 });
 
-// GET ACCOMODATIONS IMAGES - Must be BEFORE /:id route
 router.get("/:id/images", (req, res) => {
   const accomodationId = req.params.id;
   const sql =
@@ -30,7 +26,41 @@ router.get("/:id/images", (req, res) => {
   });
 });
 
-// GET ONE ACCOMODATION BY ID
+router.get("/:id/availability", (req, res) => {
+  const accomodationId = req.params.id;
+  const startDate =
+    req.query.startDate || new Date().toISOString().split("T")[0];
+  const endDate = req.query.endDate;
+
+  let sql = `
+    SELECT 
+      a.date,
+      a.reserved_rooms,
+      acc.maxRooms,
+      (acc.maxRooms - a.reserved_rooms) AS available_rooms
+    FROM accomodation_availability a
+    JOIN accomodations acc ON a.accomodation_id = acc.id
+    WHERE a.accomodation_id = ? AND a.date >= ?
+  `;
+
+  const params = [accomodationId, startDate];
+
+  if (endDate) {
+    sql += " AND a.date <= ?";
+    params.push(endDate);
+  }
+
+  sql += " ORDER BY a.date";
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Error fetching availability:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    res.json(results);
+  });
+});
+
 router.get("/:id", (req, res) => {
   const accomodationId = req.params.id;
   const sql = "SELECT * FROM accomodations WHERE id = ?";

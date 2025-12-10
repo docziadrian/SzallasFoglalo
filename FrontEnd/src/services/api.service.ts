@@ -142,6 +142,33 @@ export class ApiService {
     }
   }
 
+  async selectAccomodationAvailability(
+    accommodationId: number,
+    startDate?: string,
+    endDate?: string
+  ): Promise<ApiResponse> {
+    try {
+      let url = `${this.SERVER}/accomodations/${accommodationId}/availability`;
+      const params = new URLSearchParams();
+
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+
+      if (params.toString()) url += `?${params.toString()}`;
+
+      const response = await axios.get(url);
+      return {
+        status: 200,
+        data: response.data,
+      };
+    } catch (error: any) {
+      return {
+        status: 500,
+        message: 'Nem sikerült az elérhetőség betöltése!',
+      };
+    }
+  }
+
   async selectAccomodationBookings(
     accommodationId: number
   ): Promise<ApiResponse> {

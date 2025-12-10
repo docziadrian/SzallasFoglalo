@@ -11,15 +11,17 @@ router.get("/", (req, res) => {
 });
 
 //LOGIN method
-router.post("/:table/login", async (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  const table = req.params.table;
+  const table = "users";
 
   if (!email || !password) {
     return res
       .status(400)
       .json({ error: "HIBA! Nem adtál meg minden adatot!" });
   }
+
+  console.log("email: " + email);
 
   try {
     db.query(
@@ -141,11 +143,14 @@ router.post("/registration", async (req, res) => {
             })();
             */
 
-            res.status(200).json({
-              success: true,
-              message: "Sikeres regisztráció!",
-              userId: results.insertId,
-            });
+            const registeredUser = {
+              id: results.insertId,
+              name,
+              email,
+              role: "user",
+            };
+
+            res.status(200).json(registeredUser);
           }
         );
       }
@@ -173,7 +178,7 @@ router.patch("/:table/:id/change-password", async (req, res) => {
   }
 
   try {
-    // Get user's current password hash
+    // User jelenlegi jelszava,
     db.query(
       `SELECT id, password FROM ${table} WHERE id = ?`,
       [id],

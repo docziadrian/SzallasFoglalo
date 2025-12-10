@@ -73,41 +73,99 @@ router.post("/", (req, res) => {
     status,
   } = req.body;
 
-  const sql = `
-    INSERT INTO bookings (userId, accommodationId, startDate, endDate, persons, totalPrice, status, createdAt) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-  `;
-
-  db.query(
-    sql,
-    [
-      userId,
-      accommodationId,
-      startDate,
-      endDate,
-      persons,
-      totalPrice,
-      status || "pending",
-    ],
-    (err, result) => {
-      if (err) {
-        console.error("Error creating booking:", err);
-        return res.status(500).json({ error: "Internal server error" });
-      }
-
-      res.status(201).json({
-        id: result.insertId,
-        userId,
-        accommodationId,
-        startDate,
-        endDate,
-        persons,
-        totalPrice,
-        status: status || "pending",
-        message: "Booking created successfully",
-      });
+  db.beginTransaction((err) => {
+    if (err) {
+      return res.status(500).json({ error: "Transaction error" });
     }
-  );
+
+    const checkAvailabilitySql = `
+      SELECT date, (acc.maxRooms - a.reserved_rooms) AS available_rooms
+      FROM accomodation_availability a
+      JOIN accomodations acc ON a.accomodation_id = acc.id
+      WHERE a.accomodation_id = ? AND a.date >= ? AND a.date < ?
+    `;
+
+    db.query(
+      checkAvailabilitySql,
+      [accommodationId, startDate, endDate],
+      (err, availability) => {
+        if (err) {
+          return db.rollback(() => {
+            res.status(500).json({ error: "Error checking availability" });
+          });
+        }
+
+        const hasNoRooms = availability.some((day) => day.available_rooms <= 0);
+        if (hasNoRooms) {
+          return db.rollback(() => {
+            res
+              .status(400)
+              .json({ error: "Nincs szabad szoba a kiválasztott időszakban!" });
+          });
+        }
+
+        const bookingSql = `
+        INSERT INTO bookings (userId, accommodationId, startDate, endDate, persons, totalPrice, status, createdAt) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      `;
+
+        db.query(
+          bookingSql,
+          [
+            userId,
+            accommodationId,
+            startDate,
+            endDate,
+            persons,
+            totalPrice,
+            status || "confirmed",
+          ],
+          (err, result) => {
+            if (err) {
+              return db.rollback(() => {
+                res.status(500).json({ error: "Error creating booking" });
+              });
+            }
+
+            const updateAvailabilitySql = `
+          UPDATE accomodation_availability 
+          SET reserved_rooms = reserved_rooms + 1 
+          WHERE accomodation_id = ? AND date >= ? AND date < ?
+        `;
+
+            db.query(
+              updateAvailabilitySql,
+              [accommodationId, startDate, endDate],
+              (err) => {
+                if (err) {
+                  return db.rollback(() => {
+                    res
+                      .status(500)
+                      .json({ error: "Error updating availability" });
+                  });
+                }
+
+                db.commit((err) => {
+                  if (err) {
+                    return db.rollback(() => {
+                      res
+                        .status(500)
+                        .json({ error: "Transaction commit error" });
+                    });
+                  }
+
+                  res.status(201).json({
+                    id: result.insertId,
+                    message: "Booking created successfully",
+                  });
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  });
 });
 
 // Foglalás frissítése

@@ -90,10 +90,9 @@
             class="w-full px-4 py-2 border border-gray-300 rounded-lg hover:border-orange-500 transition text-left"
           >
             <div class="flex justify-between items-center">
-              <span class="text-gray-700"
-                >{{ checkInDate || "Válassz dátumot" }} -
-                {{ checkOutDate || "Válassz dátumot" }}</span
-              >
+              <span class="text-gray-700">
+                {{ checkInDate }} - {{ checkOutDate }}
+              </span>
               <svg
                 class="w-5 h-5 text-gray-400"
                 fill="none"
@@ -109,6 +108,10 @@
               </svg>
             </div>
           </button>
+
+          <p *ngIf="checkoutInfo" class="text-xs text-orange-600 mt-2">
+            {{ checkoutInfo }}
+          </p>
         </div>
 
         <!-- Utazók száma -->
@@ -158,6 +161,7 @@
 </div>
 
 <!-- Calendar Popup -->
+
 <div
   *ngIf="showCalendarPopup"
   class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
@@ -167,11 +171,18 @@
     class="bg-white rounded-lg shadow-2xl max-w-screen-2xl w-full max-h-[90vh] overflow-auto"
     (click)="$event.stopPropagation()"
   >
-    <!-- Header -->
     <div
       class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10"
     >
-      <h2 class="text-2xl font-bold text-gray-800">{{ calendarTitle }}</h2>
+      <div class="flex items-center space-x-4">
+        <h2 class="text-2xl font-bold text-gray-800">{{ calendarTitle }}</h2>
+        <button
+          (click)="resetSelection()"
+          class="bg-gray-500 hover:bg-gray-600 text-white rounded-lg px-3 py-1 text-sm transition"
+        >
+          Törlés
+        </button>
+      </div>
       <button
         (click)="closeCalendarPopup()"
         class="bg-red-500 hover:bg-red-600 text-white rounded-lg p-2 transition"
@@ -192,29 +203,64 @@
       </button>
     </div>
 
-    <!-- Calendar -->
     <div class="p-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <full-calendar
-          [options]="calendarOptions"
-          class="col-span-full"
-        ></full-calendar>
-      </div>
+      <full-calendar
+        [options]="calendarOptions"
+        class="col-span-full"
+      ></full-calendar>
 
-      <!-- Legend -->
       <div class="mt-6 flex flex-wrap gap-4 justify-center">
         <div class="flex items-center">
-          <div class="w-4 h-4 bg-green-500 rounded mr-2"></div>
-          <span class="text-sm text-gray-600">Szabad</span>
+          <div class="text-2xl mr-2">🟢</div>
+          <span class="text-sm font-semibold text-gray-700"
+            >Sok szabad szoba (3+)</span
+          >
         </div>
         <div class="flex items-center">
-          <div class="w-4 h-4 bg-red-500 rounded mr-2"></div>
-          <span class="text-sm text-gray-600">Foglalt</span>
+          <div class="text-2xl mr-2">🟡</div>
+          <span class="text-sm font-semibold text-gray-700"
+            >Kevés szoba (1-2)</span
+          >
         </div>
         <div class="flex items-center">
-          <div class="w-4 h-4 bg-orange-300 rounded mr-2"></div>
-          <span class="text-sm text-gray-600">Kiválasztott időszak</span>
+          <div class="text-2xl mr-2">🔴</div>
+          <span class="text-sm font-semibold text-gray-700">Telt ház</span>
         </div>
+        <div class="flex items-center">
+          <div
+            class="w-6 h-6 bg-orange-500 rounded mr-2 border-2 border-orange-700"
+          ></div>
+          <span class="text-sm font-semibold text-gray-700"
+            >Érkezés/Távozás</span
+          >
+        </div>
+        <div class="flex items-center">
+          <div class="w-6 h-6 bg-orange-500 rounded mr-2"></div>
+          <span class="text-sm font-semibold text-gray-700"
+            >Kiválasztott időszak</span
+          >
+        </div>
+        <div class="flex items-center">
+          <div class="w-6 h-6 bg-orange-200 rounded mr-2"></div>
+          <span class="text-sm font-semibold text-gray-700"
+            >Lehetséges távozási napok</span
+          >
+        </div>
+        <div class="flex items-center">
+          <div
+            class="w-6 h-6 bg-green-300 rounded mr-2 border-2 border-orange-600"
+          ></div>
+          <span class="text-sm font-semibold text-orange-600">Mai nap</span>
+        </div>
+      </div>
+
+      <div class="mt-6 text-center">
+        <button
+          (click)="closeCalendarPopup()"
+          class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-6 rounded-lg transition"
+        >
+          Bezárás
+        </button>
       </div>
     </div>
   </div>
@@ -223,18 +269,18 @@
 <!-- Galéria modal -->
 <div
   *ngIf="showGallery && images.length > 0"
-  class="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center"
+  class="fixed inset-0 bg-transparent backdrop-blur-xl bg-opacity-50 z-50 flex items-center justify-center"
   (click)="closeGallery()"
 >
   <button
-    class="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 z-10"
+    class="absolute top-8 right-12 bg-red-400 w-10 h-10 text-red-900 text-4xl hover:text-red-300 z-10"
     (click)="closeGallery()"
   >
     &times;
   </button>
 
   <button
-    class="absolute left-4 text-white text-4xl hover:text-gray-300 z-10"
+    class="absolute left-4 text-white text-4xl hover:text-gray-300 z-10 bg-black/50 h-56 w-10"
     (click)="prevImage(); $event.stopPropagation()"
     *ngIf="images.length > 1"
   >
@@ -249,7 +295,7 @@
   />
 
   <button
-    class="absolute right-4 text-white text-4xl hover:text-gray-300 z-10"
+    class="absolute right-4 text-white text-4xl hover:text-gray-300 z-10 bg-black/50 h-56 w-10"
     (click)="nextImage(); $event.stopPropagation()"
     *ngIf="images.length > 1"
   >

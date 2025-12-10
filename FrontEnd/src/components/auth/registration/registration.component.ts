@@ -35,6 +35,7 @@ export class RegistrationComponent {
   }
 
   async registrationHandler() {
+    this.aszfElfogadva = true;
     // Hiba üzenetek miatt - ha nem fogadj el ASZFT
     if (!this.aszfElfogadva) {
       this.notificationService.error('El kell fogadnod az ÁSZF-et!');
@@ -88,8 +89,8 @@ export class RegistrationComponent {
           this.registeringUser.password
         );
 
-        if (loginResponse.data && loginResponse.data.length > 0) {
-          this.sessionService.setUser(loginResponse.data[0]);
+        if (response.data) {
+          this.sessionService.setUser(response.data);
           this.notificationService.success('Sikeres bejelentkezés!');
 
           setTimeout(() => {
@@ -97,6 +98,8 @@ export class RegistrationComponent {
               window.location.reload();
             });
           }, 500);
+        } else {
+          this.notificationService.error('Hibás belépési adatok!');
         }
       } catch (loginError: any) {
         this.notificationService.info(
