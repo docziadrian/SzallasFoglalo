@@ -1,7 +1,7 @@
 <!-- Regisztráció / Bejelentkezés popup ablak itt fognak megjelenni -->
 <div
   *ngIf="showRegistrationPopup"
-  class="fixed inset-0 bg-transparent bg-opacity-50 z-50 flex items-center justify-center p-4"
+  class="fixed inset-0 bg-transparent bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
   (click)="closeRegistrationPopup()"
 >
   <div
@@ -41,7 +41,7 @@
 <!-- Login -->
 <div
   *ngIf="showLoginPopup"
-  class="fixed inset-0 bg-transparent bg-opacity-50 z-50 flex items-center justify-center p-4"
+  class="fixed inset-0 bg-transparent bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
   (click)="closeLoginPopup()"
 >
   <div

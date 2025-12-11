@@ -142,6 +142,23 @@ export class ApiService {
     }
   }
 
+  async selectAccomodationFeatures(accomodationId: number): Promise<ApiResponse> {
+    try {
+      const response = await axios.get(
+        `${this.SERVER}/accomodations/${accomodationId}/features`
+      );
+      return {
+        status: 200,
+        data: response.data,
+      };
+    } catch (error: any) {
+      return {
+        status: 500,
+        message: 'Nem sikerült a tulajdonságok betöltése!',
+      };
+    }
+  }
+
   async selectAccomodationAvailability(
     accommodationId: number,
     startDate?: string,

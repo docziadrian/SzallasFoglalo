@@ -13,6 +13,28 @@ router.get("/", (req, res) => {
   });
 });
 
+
+// A szállás különlegességei endpoint
+router.get("/:id/features", (req, res) => {
+  const accomodationId = req.params.id;
+  const sql = `
+    SELECT sf.id, sf.title, sf.shortDescription, sf.icon_key
+    FROM special_features sf
+    INNER JOIN accomodation_features af ON sf.id = af.featureId
+    WHERE af.accomodationId = ?
+    ORDER BY sf.title
+  `;
+  db.query(sql, [accomodationId], (err, results) => {
+    if (err) {
+      console.error("Error fetching accomodation features:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    res.json(results);
+  });
+});
+
+
+
 router.get("/:id/images", (req, res) => {
   const accomodationId = req.params.id;
   const sql =

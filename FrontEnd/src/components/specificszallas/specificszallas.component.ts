@@ -10,14 +10,19 @@ import { CalendarOptions, DateSelectArg, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 
+import { FeatureIconComponent } from '../feature-icon/feature-icon.component';
+import { SpecialFeature } from '../../interfaces/specialfeature';
+
+
 @Component({
   selector: 'app-specificszallas',
   standalone: true,
-  imports: [CommonModule, FormsModule, FullCalendarModule],
+  imports: [CommonModule, FormsModule, FullCalendarModule, FeatureIconComponent],
   templateUrl: './specificszallas.component.html',
   styleUrl: './specificszallas.component.scss',
 })
 export class SpecificszallasComponent implements OnInit {
+  features: SpecialFeature[] = [];
   calendarOptions: CalendarOptions = {
     initialView: 'dayGridMonth',
     plugins: [dayGridPlugin, interactionPlugin],
@@ -104,6 +109,7 @@ export class SpecificszallasComponent implements OnInit {
       if (response.status === 200 && response.data) {
         this.szallasData = response.data;
         await this.loadImages();
+        await this.loadFeatures();
       } else {
         console.log('Nincs ilyen szállás...');
         this.router.navigate(['/']);
@@ -111,6 +117,19 @@ export class SpecificszallasComponent implements OnInit {
     } catch (error) {
       console.error('Error loading accommodation:', error);
       this.router.navigate(['/']);
+    }
+  }
+
+  async loadFeatures() {
+    try {
+      const response = await this.apiservice.selectAccomodationFeatures(
+        parseInt(this.urlId, 10)
+      );
+      if (response.status === 200 && response.data) {
+        this.features = response.data;
+      }
+    } catch (error) {
+      console.error('Error loading features:', error);
     }
   }
 
