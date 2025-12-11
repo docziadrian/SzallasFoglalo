@@ -13,15 +13,25 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { FeatureIconComponent } from '../feature-icon/feature-icon.component';
 import { SpecialFeature } from '../../interfaces/specialfeature';
 
+import { SafePipe } from '../../pipes/SafePipe';
+
+import { UserReview, ReviewStats } from '../../interfaces/review';
+
+
+
 
 @Component({
   selector: 'app-specificszallas',
   standalone: true,
-  imports: [CommonModule, FormsModule, FullCalendarModule, FeatureIconComponent],
+  imports: [CommonModule, FormsModule, FullCalendarModule, FeatureIconComponent, SafePipe],
   templateUrl: './specificszallas.component.html',
   styleUrl: './specificszallas.component.scss',
 })
 export class SpecificszallasComponent implements OnInit {
+  reviews: UserReview[] = [];
+  reviewStats: ReviewStats | null = null;
+  showAllReviews: boolean = false;
+  reviewsToShow: number = 3;
   features: SpecialFeature[] = [];
   calendarOptions: CalendarOptions = {
     initialView: 'dayGridMonth',
@@ -65,24 +75,146 @@ export class SpecificszallasComponent implements OnInit {
   tempCheckInDate: Date | null = null;
   tempCheckOutDate: Date | null = null;
 
+
+  // Leiras - összecsukva v. nem
+  
+  isDescriptionExpanded: boolean = false;
+  descriptionPreviewLength: number = 1000;
+
+  get descriptionPreview(): string {
+    if (!this.szallasData?.description) return '';
+    if (this.szallasData.description.length <= this.descriptionPreviewLength) {
+      return this.szallasData.description;
+    }
+    return this.szallasData.description.substring(0, this.descriptionPreviewLength) + '...';
+  }
+
+  get shouldShowMoreButton(): boolean {
+    return (this.szallasData?.description?.length || 0) > this.descriptionPreviewLength;
+  }
+
+  toggleDescription(): void {
+    this.isDescriptionExpanded = !this.isDescriptionExpanded;
+  }
+
+  // Leiras vége
+
+
+  // TÉRKÉP
+  // Térkép navigáció
+  navigateToGoogleMaps(): void {
+    if (!this.szallasData) return;
+    const address = encodeURIComponent(this.szallasData.full_address);
+    const url = `https://www.google.com/maps/search/?api=1&query=${address}`;
+    window.open(url, '_blank');
+  }
+
+  navigateToAppleMaps(): void {
+    if (!this.szallasData) return;
+    const address = encodeURIComponent(this.szallasData.full_address);
+    const url = `http://maps.apple.com/?address=${address}`;
+    window.open(url, '_blank');
+  }
+
+
+  //TODO: API Key a Google Cloud Console bol
+  get mapEmbedUrl(): string {
+    if (!this.szallasData) return '';
+    const address = encodeURIComponent(this.szallasData.full_address);
+    // OpenStreetMap alternatíva
+    return `https://www.openstreetmap.org/export/embed.html?bbox=19.0,47.0,19.1,47.1&layer=mapnik&marker=${this.szallasData.city}`;
+  }
+  //TÉRKÉP VÉGE
+
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private apiservice: ApiService
   ) {}
 
-  ngOnInit(): void {
+  async ngOnInit() {
     this.checkInDate = 'Kérlek válassz dátumot!';
     this.checkOutDate = 'Kérlek válassz dátumot!';
 
-    this.route.params.subscribe((params) => {
+    this.route.params.subscribe(async (params) => {
       this.urlId = params['id'];
       if (this.urlId) {
-        this.loadAccomodationData();
-        this.loadAvailability();
+        await this.loadAccomodationData();
+        await this.loadAvailability();
+        
+        // Vélemények betöltése a szállás adatok után
+        await this.loadReviews();
+        await this.loadReviewStats();
       } else {
         this.router.navigate(['/']);
       }
+    });
+  }
+
+  async loadReviews() {
+    if (!this.szallasData) {
+      console.warn('Szállás adatok még nem töltődtek be');
+      return;
+    }
+    
+    try {
+      const response = await this.apiservice.selectAccomodationReviews(
+        this.szallasData.id,
+        this.showAllReviews ? 100 : this.reviewsToShow,
+        0,
+        'recent'
+      );
+      
+      if (response.status === 200) {
+        this.reviews = response.data;
+        console.log('Vélemények betöltve:', this.reviews);
+      } else {
+        console.error('Hiba a vélemények betöltésekor:', response.message);
+      }
+    } catch (error) {
+      console.error('Hiba a vélemények lekérésekor:', error);
+    }
+  }
+
+  async loadReviewStats() {
+    if (!this.szallasData) {
+      console.warn('Szállás adatok még nem töltődtek be');
+      return;
+    }
+    
+    try {
+      const response = await this.apiservice.selectAccomodationReviewStats(
+        this.szallasData.id
+      );
+      
+      if (response.status === 200) {
+        this.reviewStats = response.data;
+        console.log('Vélemény statisztikák betöltve:', this.reviewStats);
+      } else {
+        console.error('Hiba a statisztikák betöltésekor:', response.message);
+      }
+    } catch (error) {
+      console.error('Hiba a statisztikák lekérésekor:', error);
+    }
+  }
+
+  
+  async toggleReviews() {
+    this.showAllReviews = !this.showAllReviews;
+    await this.loadReviews();
+  }
+
+  getStarArray(rating: number): boolean[] {
+    return Array(10).fill(false).map((_, i) => i < rating);
+  }
+
+  formatDateVelemeny(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('hu-HU', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
     });
   }
 

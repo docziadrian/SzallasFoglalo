@@ -33,6 +33,94 @@ router.get("/:id/features", (req, res) => {
   });
 });
 
+// Vélemények lekérése szálláshoz
+router.get("/:id/reviews", (req, res) => {
+  const accomodationId = req.params.id;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = parseInt(req.query.offset) || 0;
+  const sort = req.query.sort || 'recent'; // 'recent' vagy 'rating'
+  
+  let orderBy = 'created_at DESC';
+  if (sort === 'rating') {
+    orderBy = 'rating DESC, created_at DESC';
+  }
+  
+  const sql = `
+    SELECT 
+      id,
+      accomodationId,
+      username,
+      rating,
+      review_text,
+      created_at
+    FROM user_reviews
+    WHERE accomodationId = ?
+    ORDER BY ${orderBy}
+    LIMIT ? OFFSET ?
+  `;
+  
+  db.query(sql, [accomodationId, limit, offset], (err, results) => {
+    if (err) {
+      return res.status(500).json({ 
+        status: 500, 
+        message: "Hiba a vélemények lekérésekor",
+        error: err 
+      });
+    }
+    res.json({ 
+      status: 200, 
+      data: results 
+    });
+  });
+});
+
+
+// Vélemény statisztikák
+router.get("/:id/reviews/stats", (req, res) => {
+  const accomodationId = req.params.id;
+  
+  const sql = `
+    SELECT 
+      COUNT(*) as totalReviews,
+      ROUND(AVG(rating), 1) as averageRating,
+      rating,
+      COUNT(*) as count,
+      ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM user_reviews WHERE accomodationId = ?), 1) as percentage
+    FROM user_reviews
+    WHERE accomodationId = ?
+    GROUP BY rating
+    ORDER BY rating DESC
+  `;
+  
+  db.query(sql, [accomodationId, accomodationId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ 
+        status: 500, 
+        message: "Hiba a statisztikák lekérésekor",
+        error: err 
+      });
+    }
+    
+    const totalReviews = results.reduce((sum, r) => sum + r.count, 0);
+    const averageRating = results.length > 0 ? results[0].averageRating : 0;
+    
+    const stats = {
+      totalReviews,
+      averageRating,
+      ratingDistribution: results.map(r => ({
+        rating: r.rating,
+        count: r.count,
+        percentage: r.percentage
+      }))
+    };
+    
+    res.json({ 
+      status: 200, 
+      data: stats 
+    });
+  });
+});
+
 
 
 router.get("/:id/images", (req, res) => {

@@ -1,0 +1,92 @@
+VÉLEMÉNYEK::
+
+CREATE TABLE user_reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  accomodationId INT NOT NULL,
+  username VARCHAR(100) NOT NULL,
+  rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 10),
+  review_text TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (accomodationId) REFERENCES accomodations(id)
+);
+
+
+DELIMITER $$
+
+CREATE PROCEDURE generate_random_reviews()
+BEGIN
+  DECLARE done INT DEFAULT FALSE;
+  DECLARE accId INT;
+
+  -- CURSOR az accomodations táblához
+  DECLARE cur CURSOR FOR SELECT id FROM accomodations;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+  -- 20 vélemény minta
+  SET @reviews = '[
+    "Nagyon kedves volt a személyzet, a szoba pedig tiszta és kényelmes.",
+    "A wellness részleg kifejezetten igényes, biztosan visszajövünk még.",
+    "A reggeli bőséges volt, viszont az ágy kicsit kényelmetlen.",
+    "Szuper elhelyezkedés, közel mindenhez. Kifejezetten ajánlom!",
+    "A parkolás lehetne egyszerűbb, de összességében jó élmény volt.",
+    "A medence tiszta és meleg volt, a gyerekek imádták.",
+    "A szoba hangszigetelése nem volt tökéletes, de jól aludtunk.",
+    "Nagyon jó ár-érték arány, kellemes környezet.",
+    "Gyönyörű kilátás, remek hangulat. Maximálisan elégedettek voltunk.",
+    "A vacsora finom volt, a személyzet figyelmes. Csak ajánlani tudom.",
+    "Kicsit hideg volt a szobában érkezéskor, de gyorsan megoldották.",
+    "A wellness zseniális, nagyon pihentető hétvégénk volt.",
+    "Tiszta, modern hotel, de a parkolóhely korlátozott.",
+    "Az étterem kiváló, minden nagyon ízlett.",
+    "Könnyen megtalálható, jó elhelyezkedés és barátságos személyzet.",
+    "A matrac túl puha volt nekem, de minden más tökéletes.",
+    "Csendes környék, jó pihenési lehetőség.",
+    "A medence nagyobb is lehetne, de azért kellemes volt.",
+    "Rugalmas check-in, tiszta szoba és kiváló felszereltség.",
+    "Korrekt hotel, remek kiszolgálás, biztosan visszatérünk."
+  ]';
+
+  OPEN cur;
+
+  hotel_loop: LOOP
+    FETCH cur INTO accId;
+    IF done THEN
+      LEAVE hotel_loop;
+    END IF;
+
+    -- 3 és 7 közötti véletlenszám
+    SET @cnt = FLOOR(3 + RAND() * 5);
+
+    review_loop: LOOP
+      IF @cnt = 0 THEN
+        LEAVE review_loop;
+      END IF;
+
+      SET @cnt = @cnt - 1;
+
+      -- véletlen username
+      SET @username = CONCAT('guest', FLOOR(1000 + RAND()*9000));
+
+      -- véletlen rating 1–10
+      SET @rating = FLOOR(1 + RAND()*10);
+
+      -- véletlen review szöveg index
+      SET @index = FLOOR(1 + RAND()*20);
+
+      SET @review_text = JSON_UNQUOTE(JSON_EXTRACT(@reviews, CONCAT('$[', @index - 1, ']')));
+
+      INSERT INTO user_reviews (accomodationId, username, rating, review_text)
+      VALUES (accId, @username, @rating, @review_text);
+
+    END LOOP;
+
+  END LOOP;
+
+  CLOSE cur;
+END$$
+
+DELIMITER ;
+
+
+Futtatás:
+CALL generate_random_reviews();

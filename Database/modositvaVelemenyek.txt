@@ -1,0 +1,107 @@
+-- Vélemények tábla létrehozása
+CREATE TABLE IF NOT EXISTS user_reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  accomodationId INT NOT NULL,
+  username VARCHAR(100) NOT NULL,
+  rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 10),
+  review_text TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (accomodationId) REFERENCES accomodations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Index létrehozása a gyorsabb lekérdezésekhez
+CREATE INDEX idx_accomodation_reviews ON user_reviews(accomodationId);
+CREATE INDEX idx_review_rating ON user_reviews(rating);
+CREATE INDEX idx_review_date ON user_reviews(created_at);
+
+-- Vélemény minták tömbje
+DROP PROCEDURE IF EXISTS generate_random_reviews;
+
+DELIMITER $$
+
+CREATE PROCEDURE generate_random_reviews()
+BEGIN
+  DECLARE done INT DEFAULT FALSE;
+  DECLARE accId INT;
+  DECLARE reviewCount INT;
+  DECLARE i INT;
+  DECLARE randomRating INT;
+  DECLARE randomName VARCHAR(100);
+  DECLARE randomReview TEXT;
+  DECLARE randomDate DATETIME;
+  
+  -- Magyar nevek
+  DECLARE names_array TEXT DEFAULT 'Kovács János,Nagy Mária,Szabó Péter,Kiss Anna,Horváth László,Tóth Éva,Varga Gábor,Molnár Zsuzsanna,Balogh István,Papp Katalin,Farkas András,Simon Ágnes,Lakatos József,Takács Eszter,Lukács Tamás';
+  
+  -- Vélemény minták
+  DECLARE reviews_array TEXT DEFAULT 'Nagyon kedves volt a személyzet, a szoba pedig tiszta és kényelmes.|A wellness részleg kifejezetten igényes, biztosan visszajövünk még.|A reggeli bőséges volt, viszont az ágy kicsit kényelmetlen.|Szuper elhelyezkedés, közel mindenhez. Kifejezetten ajánlom!|A parkolás lehetne egyszerűbb, de összességében jó élmény volt.|A medence tiszta és meleg volt, a gyerekek imádták.|A szoba hangszigetelése nem volt tökéletes, de jól aludtunk.|Nagyon jó ár-érték arány, kellemes környezet.|Gyönyörű kilátás, remek hangulat. Maximálisan elégedettek voltunk.|A vacsora finom volt, a személyzet figyelmes. Csak ajánlani tudom.|Korrekt szállás, remek kiszolgálás, biztosan visszatérünk.|Tiszta szobák, barátságos személyzet. Ajánlom mindenkinek!|Csendes, nyugodt környezet. Tökéletes pihenéshez.|Kiváló helyen van, könnyen megközelíthető.|Modern berendezés, minden igényt kielégít.|A családdal töltött hétvége felejthetetlen volt.|Remek programlehetőségek a közelben.|Az ételek változatosak és finomak voltak.|Segítőkész recepciós személyzet, gyors check-in.|Hangulatos, otthonos környezet. Jó szívvel ajánlom!';
+
+  -- CURSOR az accomodations táblához
+  DECLARE cur CURSOR FOR SELECT id FROM accomodations;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+  OPEN cur;
+
+  hotel_loop: LOOP
+    FETCH cur INTO accId;
+    IF done THEN
+      LEAVE hotel_loop;
+    END IF;
+
+    -- Véletlenszerű számú vélemény generálása (5-15 közötti)
+    SET reviewCount = FLOOR(5 + RAND() * 11);
+    SET i = 0;
+
+    WHILE i < reviewCount DO
+      -- Véletlenszerű név kiválasztása
+      SET randomName = SUBSTRING_INDEX(SUBSTRING_INDEX(names_array, ',', FLOOR(1 + RAND() * 15)), ',', -1);
+      
+      -- Véletlenszerű értékelés (6-10 közötti, hogy jó legyen az átlag)
+      SET randomRating = FLOOR(6 + RAND() * 5);
+      
+      -- Véletlenszerű vélemény szöveg kiválasztása
+      SET randomReview = SUBSTRING_INDEX(SUBSTRING_INDEX(reviews_array, '|', FLOOR(1 + RAND() * 20)), '|', -1);
+      
+      -- Véletlenszerű dátum az elmúlt 2 évből
+      SET randomDate = DATE_SUB(NOW(), INTERVAL FLOOR(RAND() * 730) DAY);
+
+      -- Vélemény beszúrása
+      INSERT INTO user_reviews (accomodationId, username, rating, review_text, created_at)
+      VALUES (accId, randomName, randomRating, randomReview, randomDate);
+
+      SET i = i + 1;
+    END WHILE;
+
+  END LOOP;
+
+  CLOSE cur;
+  
+  SELECT 'Vélemények sikeresen generálva!' AS message;
+END$$
+
+DELIMITER ;
+
+-- Stored procedure futtatása
+CALL generate_random_reviews();
+
+-- Átlag értékelés frissítése az accomodations táblában
+UPDATE accomodations a
+SET avgrating = (
+  SELECT ROUND(AVG(rating), 1)
+  FROM user_reviews
+  WHERE accomodationId = a.id
+)
+WHERE EXISTS (
+  SELECT 1 FROM user_reviews WHERE accomodationId = a.id
+);
+
+-- Ellenőrzés
+SELECT 
+  a.name,
+  a.avgrating AS szallas_atlag,
+  COUNT(r.id) AS velemeny_db,
+  ROUND(AVG(r.rating), 1) AS szamolt_atlag
+FROM accomodations a
+LEFT JOIN user_reviews r ON a.id = r.accomodationId
+GROUP BY a.id, a.name, a.avgrating
+ORDER BY a.name;

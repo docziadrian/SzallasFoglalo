@@ -104,6 +104,21 @@ UPDATE special_features SET icon_key = 'gym'         WHERE title = 'Fitness tere
 UPDATE special_features SET icon_key = 'wine'        WHERE title = 'Borkóstoló program';
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Most az API-ból visszakapsz valami ilyesmit:
 
 {

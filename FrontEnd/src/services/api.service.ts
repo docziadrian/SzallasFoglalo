@@ -159,6 +159,38 @@ export class ApiService {
     }
   }
 
+
+  // VÉLEMÉNYEK
+  async selectAccomodationReviews(
+    accommodationId: number,
+    limit: number = 10,
+    offset: number = 0,
+    sort: 'recent' | 'rating' = 'recent'
+  ): Promise<ApiResponse> {
+    try {
+      const url = `${this.SERVER}/accomodations/${accommodationId}/reviews?limit=${limit}&offset=${offset}&sort=${sort}`;
+      const response = await fetch(url);
+      return await response.json();
+    } catch (error) {
+      return { status: 500, message: 'Hiba a vélemények lekérésekor' };
+    }
+  }
+
+  async selectAccomodationReviewStats(
+    accommodationId: number
+  ): Promise<ApiResponse> {
+    try {
+      const url = `${this.SERVER}/accomodations/${accommodationId}/reviews/stats`;
+      const response = await fetch(url);
+      return await response.json();
+    } catch (error) {
+      return { status: 500, message: 'Hiba a statisztikák lekérésekor' };
+    }
+  }
+
+  // VÉLEMÉNYEK VÉGE
+
+
   async selectAccomodationAvailability(
     accommodationId: number,
     startDate?: string,
