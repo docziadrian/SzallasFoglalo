@@ -18,4 +18,9 @@ Az elérhető szállások a https://szallas.hu/ oldalról származnak.
     - MySQL - Adatbázis
     - Admin panel
 
+
+# Képek:
+    - Logó: NanoBanana AI által generált.
+    Prompt: "Minimalist flat-style logo representing hotels and accommodations; clean geometric shapes, simple lines, abstract hotel or building icon; modern and professional design in a red and white color scheme; vector-style, bold but simple, no realistic textures."
+
 Készítette: Dóczi Adrián Márk

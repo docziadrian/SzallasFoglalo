@@ -1,0 +1,119 @@
+<div class="fixed bottom-4 right-4 md:bottom-2 md:right-2 z-50">
+    <!-- AI chat gomb -->
+    <button
+      *ngIf="!isOpen"
+      (click)="toggleChat()"
+      class="relative group"
+    >
+      <!-- Alap kerdes felteszi -->
+      <div class="absolute -top-2 -left-20 md:-left-24 bg-white text-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <span class="text-sm font-medium">Kérdésed van?</span>
+        <div class="absolute top-1/2 -right-2 transform -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-l-8 border-l-white"></div>
+      </div>
+
+
+      <div class="relative">
+        <img 
+          src="/assets/pictures/aichat.png" 
+          alt="AI Chat" 
+          class="w-20 h-20 md:w-24 md:h-24 transition-all duration-300 group-hover:scale-110 drop-shadow-lg"
+        />
+        
+
+        
+        <!-- Potty -->
+        <span class="absolute top-5 right-4 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+      </div>
+    </button>
+  
+    <!-- Chat Window -->
+    <div
+      *ngIf="isOpen"
+      class="bg-white rounded-lg shadow-2xl w-[90vw] md:w-96 h-[80vh] md:h-[600px] flex flex-col"
+    >
+
+      <div class="bg-[#E62727] text-white px-4 py-3 rounded-t-lg flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          
+          <span class="font-semibold">FoglaljLe AI</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button
+            (click)="clearChat()"
+            class="hover:bg-[#cc2020] p-1 rounded transition"
+            title="Beszélgetés törlése"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+          <button
+            (click)="toggleChat()"
+            class="hover:bg-[#cc2020] p-1 rounded transition"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+  
+      <!-- Uzenetek -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 chat-messages">
+        <div
+          *ngFor="let message of messages"
+          [ngClass]="{
+            'flex justify-end': message.sender === 'user',
+            'flex justify-start': message.sender === 'ai'
+          }"
+        >
+          <div
+            [ngClass]="{
+              'bg-[#E62727] text-white': message.sender === 'user',
+              'bg-white text-gray-800 border border-gray-200': message.sender === 'ai'
+            }"
+            class="max-w-[75%] rounded-lg px-4 py-2 shadow-sm"
+          >
+            <p class="text-sm break-words">{{ message.text }}</p>
+            <span class="text-xs opacity-70 mt-1 block">
+              {{ message.timestamp | date: 'HH:mm' }}
+            </span>
+          </div>
+        </div>
+  
+        <!-- Betoltes -->
+        <div *ngIf="isLoading" class="flex justify-start">
+          <div class="bg-white text-gray-800 border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
+            <div class="flex space-x-2">
+              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Input -->
+      <div class="p-4 border-t border-gray-200 bg-white rounded-b-lg">
+        <div class="relative">
+          <input
+            type="text"
+            [(ngModel)]="userMessage"
+            (keydown.enter)="sendMessage()"
+            placeholder="Írj üzenetet..."
+            class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#E62727] focus:border-transparent"
+            [disabled]="isLoading"
+          />
+          <button
+            (click)="sendMessage()"
+            [disabled]="!userMessage.trim() || isLoading"
+            class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#E62727] text-white rounded-full p-2 hover:bg-[#cc2020] transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>

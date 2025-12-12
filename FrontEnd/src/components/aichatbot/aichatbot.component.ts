@@ -1,0 +1,131 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AIMessage } from '../../interfaces/aimessageinterface';
+import { ApiService } from '../../services/api.service';
+
+@Component({
+  selector: 'app-aichatbot',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  templateUrl: './aichatbot.component.html',
+  styleUrl: './aichatbot.component.scss'
+})
+export class AichatbotComponent implements OnInit {
+  isOpen = false;
+  messages: AIMessage[] = [];
+  userMessage = '';
+  isLoading = false;
+
+  constructor(private apiService: ApiService) {}
+
+  ngOnInit() {
+    this.loadMessagesFromCookie();
+    
+    if (this.messages.length === 0) {
+      this.addInitialMessage();
+    }
+  }
+
+  toggleChat() {
+    this.isOpen = !this.isOpen;
+  }
+
+  addInitialMessage() {
+    const initialMessage: AIMessage = {
+      id: this.generateId(),
+      text: 'Szia! Én a FoglaljLe AI asszisztense vagyok. Tegyél fel bármilyen kérdést, amit csak szeretnél! :)',
+      sender: 'ai',
+      timestamp: new Date()
+    };
+    this.messages.push(initialMessage);
+    this.saveMessagesToCookie();
+  }
+
+  async sendMessage() {
+    if (!this.userMessage.trim() || this.isLoading) return;
+
+    const userMsg: AIMessage = {
+      id: this.generateId(),
+      text: this.userMessage.trim(),
+      sender: 'user',
+      timestamp: new Date()
+    };
+
+    this.messages.push(userMsg);
+    this.saveMessagesToCookie();
+    
+    const messageToSend = this.userMessage;
+    this.userMessage = '';
+    this.isLoading = true;
+
+    try {
+      const response = await this.apiService.sendAIMessage(messageToSend);
+      
+      if (response.status === 200 && response.data) {
+        const aiMsg: AIMessage = {
+          id: this.generateId(),
+          text: response.data.response,
+          sender: 'ai',
+          timestamp: new Date()
+        };
+        this.messages.push(aiMsg);
+        this.saveMessagesToCookie();
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMsg: AIMessage = {
+        id: this.generateId(),
+        text: 'Sajnos hiba történt. Kérlek próbáld újra!',
+        sender: 'ai',
+        timestamp: new Date()
+      };
+      this.messages.push(errorMsg);
+      this.saveMessagesToCookie();
+    } finally {
+      this.isLoading = false;
+    }
+
+    setTimeout(() => this.scrollToBottom(), 100);
+  }
+
+  saveMessagesToCookie() {
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 1);
+    
+    const cookieValue = encodeURIComponent(JSON.stringify(this.messages));
+    document.cookie = `aiChatMessages=${cookieValue}; expires=${expiryDate.toUTCString()}; path=/; SameSite=Strict`;
+  }
+
+  loadMessagesFromCookie() {
+    const cookies = document.cookie.split(';');
+    const chatCookie = cookies.find(c => c.trim().startsWith('aiChatMessages='));
+    
+    if (chatCookie) {
+      try {
+        const cookieValue = chatCookie.split('=')[1];
+        this.messages = JSON.parse(decodeURIComponent(cookieValue));
+      } catch (error) {
+        console.error('Error loading messages from cookie:', error);
+        this.messages = [];
+      }
+    }
+  }
+
+  clearChat() {
+    this.messages = [];
+    document.cookie = 'aiChatMessages=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    this.addInitialMessage();
+  }
+
+  private generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+
+  private scrollToBottom() {
+    const chatContainer = document.querySelector('.chat-messages');
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  }
+}

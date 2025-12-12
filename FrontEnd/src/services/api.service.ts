@@ -46,6 +46,21 @@ export class ApiService {
     }
   }
 
+  async sendAIMessage(message: string): Promise<ApiResponse> {
+    try {
+      const response = await axios.post(`${this.SERVER}/aichat`, { message });
+      return {
+        status: 200,
+        data: response.data,
+      };
+    } catch (error: any) {
+      return {
+        status: 500,
+        message: 'Hiba történt az AI válasz lekérésekor!',
+      };
+    }
+  }
+
   async upload(formData: FormData): Promise<ApiResponse> {
     try {
       const response = await axios.post(`${this.SERVER}/upload`, formData);
