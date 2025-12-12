@@ -1,0 +1,24 @@
+input[type="range"] {
+    &::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #E62727;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+  
+    &::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: #E62727;
+      cursor: pointer;
+      border-radius: 50%;
+      border: none;
+    }
+  }
+  
+  .rotate-180 {
+    transform: rotate(180deg);
+  }

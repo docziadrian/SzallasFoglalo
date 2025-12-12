@@ -23,7 +23,7 @@ export class SzallasokComponent implements OnInit {
   }
 
   checkSession() {
-    // Ha az url tartalmazza a 'szallasok' szot, akkor nincs max megjelenítési limit
+    // Ha az url tartalmazza a 'accomodations' szot, akkor nincs max megjelenítési limit
     if (window.location.href.indexOf('accomodations') !== -1) {
       this.MAX_DISPLAY_LIMIT = Infinity;
     }

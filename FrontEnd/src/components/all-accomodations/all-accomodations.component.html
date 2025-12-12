@@ -1,0 +1,241 @@
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Összes szállás</h1>
+        
+        <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div class="relative w-full sm:w-96">
+            <input
+              type="text"
+              [(ngModel)]="searchTerm"
+              (input)="onSearchChange()"
+              placeholder="Keresés név, város alapján..."
+              class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E62727] focus:border-transparent"
+            />
+            <svg class="absolute left-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+  
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <span class="text-gray-700 font-medium whitespace-nowrap">Rendezés:</span>
+            <select
+              [(ngModel)]="sortBy"
+              (change)="onSortChange()"
+              class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E62727] focus:border-transparent bg-white"
+            >
+              <option value="rating">Legjobb értékelés</option>
+              <option value="price-asc">Olcsók elöl</option>
+              <option value="price-desc">Drágák elöl</option>
+            </select>
+          </div>
+        </div>
+      </div>
+  
+      <button
+        (click)="toggleFilter()"
+        class="lg:hidden w-full mb-4 bg-white border border-gray-300 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition"
+      >
+        <span class="font-medium text-gray-700">Szűrők</span>
+        <svg
+          [class.rotate-180]="isFilterOpen"
+          class="w-5 h-5 text-gray-500 transition-transform"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+  
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <aside
+          [class.hidden]="!isFilterOpen"
+          class="lg:block lg:col-span-1 space-y-6"
+        >
+          <div class="bg-white rounded-lg shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Ár</h3>
+            
+            <div class="space-y-4">
+              <div>
+                <label class="text-sm text-gray-600">Minimum: {{ formatPrice(currentMinPrice) }} Ft</label>
+                <input
+                  type="range"
+                  [(ngModel)]="currentMinPrice"
+                  [min]="minPrice"
+                  [max]="maxPrice"
+                  (input)="onPriceChange()"
+                  class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#E62727]"
+                />
+              </div>
+              
+              <div>
+                <label class="text-sm text-gray-600">Maximum: {{ formatPrice(currentMaxPrice) }} Ft</label>
+                <input
+                  type="range"
+                  [(ngModel)]="currentMaxPrice"
+                  [min]="minPrice"
+                  [max]="maxPrice"
+                  (input)="onPriceChange()"
+                  class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#E62727]"
+                />
+              </div>
+            </div>
+          </div>
+  
+          <div class="bg-white rounded-lg shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Értékelés</h3>
+            
+            <div class="space-y-3">
+              <label class="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="rating"
+                  value="all"
+                  [(ngModel)]="selectedRating"
+                  (change)="onRatingChange()"
+                  class="w-4 h-4 text-[#E62727] focus:ring-[#E62727]"
+                />
+                <span class="ml-2 text-gray-700">Összes</span>
+              </label>
+              
+              <label class="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="rating"
+                  value="high"
+                  [(ngModel)]="selectedRating"
+                  (change)="onRatingChange()"
+                  class="w-4 h-4 text-[#E62727] focus:ring-[#E62727]"
+                />
+                <span class="ml-2 text-gray-700">8.0 - 10.0</span>
+              </label>
+              
+              <label class="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="rating"
+                  value="medium"
+                  [(ngModel)]="selectedRating"
+                  (change)="onRatingChange()"
+                  class="w-4 h-4 text-[#E62727] focus:ring-[#E62727]"
+                />
+                <span class="ml-2 text-gray-700">5.0 - 7.9</span>
+              </label>
+              
+              <label class="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="rating"
+                  value="low"
+                  [(ngModel)]="selectedRating"
+                  (change)="onRatingChange()"
+                  class="w-4 h-4 text-[#E62727] focus:ring-[#E62727]"
+                />
+                <span class="ml-2 text-gray-700">5.0 alatt</span>
+              </label>
+            </div>
+          </div>
+        </aside>
+  
+        <main class="lg:col-span-3">
+          <div class="space-y-4">
+            <div
+              *ngFor="let accomodation of filteredAccomodations"
+              class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+            >
+              <div class="flex flex-col sm:flex-row">
+                <div class="sm:w-64 h-48 sm:h-auto">
+                  <img
+                    [src]="accomodation.cover_image"
+                    [alt]="accomodation.name"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+  
+                <div class="flex-1 p-4 sm:p-6">
+                  <div class="flex flex-col sm:flex-row justify-between gap-4">
+                    <div class="flex-1">
+                      <h3 class="text-xl font-semibold text-gray-900 mb-2">
+                        {{ accomodation.name }}
+                      </h3>
+                      
+                      <p class="text-sm text-gray-600 mb-2">
+                        <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {{ accomodation.city }}
+                      </p>
+                      
+                      <p class="text-gray-700 leading-relaxed">
+                        {{ truncateText(accomodation.description, 120) }}
+                      </p>
+                    </div>
+  
+                    <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4 border-t sm:border-t-0 sm:border-l border-gray-200 pt-4 sm:pt-0 sm:pl-6">
+                      <div class="flex flex-col items-center">
+                        <div class="relative w-16 h-16 mb-2">
+                          <svg class="w-16 h-16 transform -rotate-90">
+                            <circle
+                              cx="32"
+                              cy="32"
+                              r="28"
+                              stroke="#e5e7eb"
+                              stroke-width="6"
+                              fill="none"
+                            />
+                            <circle
+                              cx="32"
+                              cy="32"
+                              r="28"
+                              [attr.stroke]="accomodation.avgrating >= 8 ? '#10b981' : accomodation.avgrating >= 5 ? '#f59e0b' : '#ef4444'"
+                              stroke-width="6"
+                              fill="none"
+                              [attr.stroke-dasharray]="175.93"
+                              [attr.stroke-dashoffset]="175.93 - (175.93 * accomodation.avgrating / 10)"
+                              stroke-linecap="round"
+                            />
+                          </svg>
+                          <div class="absolute inset-0 flex items-center justify-center">
+                            <span class="text-lg font-bold text-gray-900">
+                              {{ accomodation.avgrating.toFixed(1) }}
+                            </span>
+                          </div>
+                        </div>
+                        <span class="text-xs text-gray-500">Értékelés</span>
+                      </div>
+  
+                      <div class="text-right sm:text-center">
+                        <div class="text-2xl font-bold text-[#E62727]">
+                          {{ formatPrice(accomodation.priceforone) }} Ft
+                        </div>
+                        <div class="text-sm text-gray-500">fő / éj</div>
+                        
+                        <button
+                          (click)="viewAccomodation(accomodation.id)"
+                          class="mt-3 px-6 py-2 bg-[#E62727] text-white rounded-full hover:bg-[#cc2020] transition font-medium"
+                        >
+                          Megnézem
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+  
+            <div *ngIf="filteredAccomodations.length === 0" class="text-center py-12">
+              <svg class="mx-auto w-16 h-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 class="text-xl font-semibold text-gray-700 mb-2">Nincs találat</h3>
+              <p class="text-gray-500">Próbálj meg más keresési feltételekkel!</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
