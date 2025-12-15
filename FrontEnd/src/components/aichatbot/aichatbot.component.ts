@@ -1,4 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ViewChild,
+  ElementRef,
+  AfterViewChecked,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AIMessage } from '../../interfaces/aimessageinterface';
@@ -9,26 +15,39 @@ import { ApiService } from '../../services/api.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './aichatbot.component.html',
-  styleUrl: './aichatbot.component.scss'
+  styleUrl: './aichatbot.component.scss',
 })
-export class AichatbotComponent implements OnInit {
+export class AichatbotComponent implements OnInit, AfterViewChecked {
+  @ViewChild('chatMessages') private chatMessagesContainer!: ElementRef;
+
   isOpen = false;
   messages: AIMessage[] = [];
   userMessage = '';
   isLoading = false;
+  private shouldScroll = false;
 
   constructor(private apiService: ApiService) {}
 
   ngOnInit() {
     this.loadMessagesFromCookie();
-    
+
     if (this.messages.length === 0) {
       this.addInitialMessage();
     }
   }
 
+  ngAfterViewChecked() {
+    if (this.shouldScroll) {
+      this.scrollToBottom();
+      this.shouldScroll = false;
+    }
+  }
+
   toggleChat() {
     this.isOpen = !this.isOpen;
+    if (this.isOpen) {
+      this.shouldScroll = true;
+    }
   }
 
   addInitialMessage() {
@@ -36,10 +55,11 @@ export class AichatbotComponent implements OnInit {
       id: this.generateId(),
       text: 'Szia! Én a FoglaljLe AI asszisztense vagyok. Tegyél fel bármilyen kérdést, amit csak szeretnél! :)',
       sender: 'ai',
-      timestamp: new Date()
+      timestamp: new Date(),
     };
     this.messages.push(initialMessage);
     this.saveMessagesToCookie();
+    this.shouldScroll = true;
   }
 
   async sendMessage() {
@@ -49,28 +69,30 @@ export class AichatbotComponent implements OnInit {
       id: this.generateId(),
       text: this.userMessage.trim(),
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     this.messages.push(userMsg);
     this.saveMessagesToCookie();
-    
+    this.shouldScroll = true;
+
     const messageToSend = this.userMessage;
     this.userMessage = '';
     this.isLoading = true;
 
     try {
       const response = await this.apiService.sendAIMessage(messageToSend);
-      
+
       if (response.status === 200 && response.data) {
         const aiMsg: AIMessage = {
           id: this.generateId(),
           text: response.data.response,
           sender: 'ai',
-          timestamp: new Date()
+          timestamp: new Date(),
         };
         this.messages.push(aiMsg);
         this.saveMessagesToCookie();
+        this.shouldScroll = true;
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -78,29 +100,30 @@ export class AichatbotComponent implements OnInit {
         id: this.generateId(),
         text: 'Sajnos hiba történt. Kérlek próbáld újra!',
         sender: 'ai',
-        timestamp: new Date()
+        timestamp: new Date(),
       };
       this.messages.push(errorMsg);
       this.saveMessagesToCookie();
+      this.shouldScroll = true;
     } finally {
       this.isLoading = false;
     }
-
-    setTimeout(() => this.scrollToBottom(), 100);
   }
 
   saveMessagesToCookie() {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 1);
-    
+
     const cookieValue = encodeURIComponent(JSON.stringify(this.messages));
     document.cookie = `aiChatMessages=${cookieValue}; expires=${expiryDate.toUTCString()}; path=/; SameSite=Strict`;
   }
 
   loadMessagesFromCookie() {
     const cookies = document.cookie.split(';');
-    const chatCookie = cookies.find(c => c.trim().startsWith('aiChatMessages='));
-    
+    const chatCookie = cookies.find((c) =>
+      c.trim().startsWith('aiChatMessages=')
+    );
+
     if (chatCookie) {
       try {
         const cookieValue = chatCookie.split('=')[1];
@@ -114,7 +137,8 @@ export class AichatbotComponent implements OnInit {
 
   clearChat() {
     this.messages = [];
-    document.cookie = 'aiChatMessages=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie =
+      'aiChatMessages=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     this.addInitialMessage();
   }
 
@@ -123,9 +147,13 @@ export class AichatbotComponent implements OnInit {
   }
 
   private scrollToBottom() {
-    const chatContainer = document.querySelector('.chat-messages');
-    if (chatContainer) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
+    if (this.chatMessagesContainer) {
+      try {
+        this.chatMessagesContainer.nativeElement.scrollTop =
+          this.chatMessagesContainer.nativeElement.scrollHeight;
+      } catch (err) {
+        console.error('Scroll error:', err);
+      }
     }
   }
 }

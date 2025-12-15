@@ -34,6 +34,9 @@ app.use("/accomodations", accomodations);
 const bookingsRouter = require("./modules/bookings");
 app.use("/bookings", bookingsRouter);
 
+const aichatRouter = require("./modules/aichat");
+app.use("/aichat", aichatRouter);
+
 // listening
 app.listen(port, () => {
   console.log(`Server listening on port ${port}...`);

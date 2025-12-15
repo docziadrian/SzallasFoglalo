@@ -13,7 +13,6 @@ router.get("/", (req, res) => {
   });
 });
 
-
 // A szállás különlegességei endpoint
 router.get("/:id/features", (req, res) => {
   const accomodationId = req.params.id;
@@ -38,13 +37,13 @@ router.get("/:id/reviews", (req, res) => {
   const accomodationId = req.params.id;
   const limit = parseInt(req.query.limit) || 10;
   const offset = parseInt(req.query.offset) || 0;
-  const sort = req.query.sort || 'recent'; // 'recent' vagy 'rating'
-  
-  let orderBy = 'created_at DESC';
-  if (sort === 'rating') {
-    orderBy = 'rating DESC, created_at DESC';
+  const sort = req.query.sort || "recent"; // 'recent' vagy 'rating'
+
+  let orderBy = "created_at DESC";
+  if (sort === "rating") {
+    orderBy = "rating DESC, created_at DESC";
   }
-  
+
   const sql = `
     SELECT 
       id,
@@ -58,27 +57,26 @@ router.get("/:id/reviews", (req, res) => {
     ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
   `;
-  
+
   db.query(sql, [accomodationId, limit, offset], (err, results) => {
     if (err) {
-      return res.status(500).json({ 
-        status: 500, 
+      return res.status(500).json({
+        status: 500,
         message: "Hiba a vélemények lekérésekor",
-        error: err 
+        error: err,
       });
     }
-    res.json({ 
-      status: 200, 
-      data: results 
+    res.json({
+      status: 200,
+      data: results,
     });
   });
 });
 
-
 // Vélemény statisztikák
 router.get("/:id/reviews/stats", (req, res) => {
   const accomodationId = req.params.id;
-  
+
   const sql = `
     SELECT 
       COUNT(*) as totalReviews,
@@ -91,37 +89,35 @@ router.get("/:id/reviews/stats", (req, res) => {
     GROUP BY rating
     ORDER BY rating DESC
   `;
-  
+
   db.query(sql, [accomodationId, accomodationId], (err, results) => {
     if (err) {
-      return res.status(500).json({ 
-        status: 500, 
+      return res.status(500).json({
+        status: 500,
         message: "Hiba a statisztikák lekérésekor",
-        error: err 
+        error: err,
       });
     }
-    
+
     const totalReviews = results.reduce((sum, r) => sum + r.count, 0);
     const averageRating = results.length > 0 ? results[0].averageRating : 0;
-    
+
     const stats = {
       totalReviews,
       averageRating,
-      ratingDistribution: results.map(r => ({
+      ratingDistribution: results.map((r) => ({
         rating: r.rating,
         count: r.count,
-        percentage: r.percentage
-      }))
+        percentage: r.percentage,
+      })),
     };
-    
-    res.json({ 
-      status: 200, 
-      data: stats 
+
+    res.json({
+      status: 200,
+      data: stats,
     });
   });
 });
-
-
 
 router.get("/:id/images", (req, res) => {
   const accomodationId = req.params.id;
@@ -142,32 +138,79 @@ router.get("/:id/availability", (req, res) => {
     req.query.startDate || new Date().toISOString().split("T")[0];
   const endDate = req.query.endDate;
 
-  let sql = `
-    SELECT 
-      a.date,
-      a.reserved_rooms,
-      acc.maxRooms,
-      (acc.maxRooms - a.reserved_rooms) AS available_rooms
-    FROM accomodation_availability a
-    JOIN accomodations acc ON a.accomodation_id = acc.id
-    WHERE a.accomodation_id = ? AND a.date >= ?
-  `;
+  // First, get the accommodation's max rooms
+  const getAccommodationSql =
+    "SELECT maxRooms, reservedRooms FROM accomodations WHERE id = ?";
 
-  const params = [accomodationId, startDate];
-
-  if (endDate) {
-    sql += " AND a.date <= ?";
-    params.push(endDate);
-  }
-
-  sql += " ORDER BY a.date";
-
-  db.query(sql, params, (err, results) => {
+  db.query(getAccommodationSql, [accomodationId], (err, accResults) => {
     if (err) {
-      console.error("Error fetching availability:", err);
+      console.error("Error fetching accommodation:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
-    res.json(results);
+
+    if (accResults.length === 0) {
+      return res.status(404).json({ error: "Accommodation not found" });
+    }
+
+    const maxRooms = accResults[0].maxRooms;
+
+    // Generate date range
+    const start = new Date(startDate);
+    const end = endDate
+      ? new Date(endDate)
+      : new Date(start.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const dates = [];
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push(new Date(d).toISOString().split("T")[0]);
+    }
+
+    // Get bookings that overlap with our date range
+    const bookingsSql = `
+      SELECT startDate, endDate 
+      FROM bookings 
+      WHERE accommodationId = ? 
+        AND status != 'cancelled'
+        AND startDate < ?
+        AND endDate > ?
+    `;
+
+    const bookingEndDate = new Date(end);
+    bookingEndDate.setDate(bookingEndDate.getDate() + 1);
+
+    db.query(
+      bookingsSql,
+      [accomodationId, bookingEndDate.toISOString().split("T")[0], startDate],
+      (err, bookings) => {
+        if (err) {
+          console.error("Error fetching bookings:", err);
+          return res.status(500).json({ error: "Internal server error" });
+        }
+
+        // Calculate availability for each date
+        const availability = dates.map((date) => {
+          // Count how many bookings overlap with this date
+          const reservedRooms = bookings.filter((booking) => {
+            const bookingStart = new Date(booking.startDate)
+              .toISOString()
+              .split("T")[0];
+            const bookingEnd = new Date(booking.endDate)
+              .toISOString()
+              .split("T")[0];
+            return date >= bookingStart && date < bookingEnd;
+          }).length;
+
+          return {
+            date: date,
+            reserved_rooms: reservedRooms,
+            maxRooms: maxRooms,
+            available_rooms: maxRooms - reservedRooms,
+          };
+        });
+
+        res.json(availability);
+      }
+    );
   });
 });
 

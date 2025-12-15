@@ -13,3 +13,8 @@ DBUSER="root"
 DBPASS=""
 
 SESSION_SECRET="szallasfoglalov2secrect"
+
+
+OPENROUTER_KEY=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
+
+OPENROUTER_MODEL=openai/gpt-oss-20b:free

@@ -78,93 +78,112 @@ router.post("/", (req, res) => {
       return res.status(500).json({ error: "Transaction error" });
     }
 
-    const checkAvailabilitySql = `
-      SELECT date, (acc.maxRooms - a.reserved_rooms) AS available_rooms
-      FROM accomodation_availability a
-      JOIN accomodations acc ON a.accomodation_id = acc.id
-      WHERE a.accomodation_id = ? AND a.date >= ? AND a.date < ?
-    `;
+    // First, get the accommodation's max rooms
+    const getAccommodationSql =
+      "SELECT maxRooms FROM accomodations WHERE id = ?";
 
-    db.query(
-      checkAvailabilitySql,
-      [accommodationId, startDate, endDate],
-      (err, availability) => {
-        if (err) {
-          return db.rollback(() => {
-            res.status(500).json({ error: "Error checking availability" });
-          });
-        }
+    db.query(getAccommodationSql, [accommodationId], (err, accResults) => {
+      if (err) {
+        return db.rollback(() => {
+          res.status(500).json({ error: "Error fetching accommodation" });
+        });
+      }
 
-        const hasNoRooms = availability.some((day) => day.available_rooms <= 0);
-        if (hasNoRooms) {
-          return db.rollback(() => {
-            res
-              .status(400)
-              .json({ error: "Nincs szabad szoba a kiválasztott időszakban!" });
-          });
-        }
+      if (accResults.length === 0) {
+        return db.rollback(() => {
+          res.status(404).json({ error: "Accommodation not found" });
+        });
+      }
 
-        const bookingSql = `
-        INSERT INTO bookings (userId, accommodationId, startDate, endDate, persons, totalPrice, status, createdAt) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      const maxRooms = accResults[0].maxRooms;
+
+      // Check availability for the date range by counting overlapping bookings
+      const checkAvailabilitySql = `
+        SELECT COUNT(*) as bookedRooms
+        FROM bookings
+        WHERE accommodationId = ? 
+          AND status != 'cancelled'
+          AND (
+            (startDate <= ? AND endDate > ?)
+            OR (startDate < ? AND endDate >= ?)
+            OR (startDate >= ? AND endDate <= ?)
+          )
       `;
 
-        db.query(
-          bookingSql,
-          [
-            userId,
-            accommodationId,
-            startDate,
-            endDate,
-            persons,
-            totalPrice,
-            status || "confirmed",
-          ],
-          (err, result) => {
-            if (err) {
-              return db.rollback(() => {
-                res.status(500).json({ error: "Error creating booking" });
+      db.query(
+        checkAvailabilitySql,
+        [
+          accommodationId,
+          startDate,
+          startDate,
+          endDate,
+          endDate,
+          startDate,
+          endDate,
+        ],
+        (err, availabilityResults) => {
+          if (err) {
+            return db.rollback(() => {
+              res.status(500).json({ error: "Error checking availability" });
+            });
+          }
+
+          const bookedRooms = availabilityResults[0].bookedRooms;
+          const availableRooms = maxRooms - bookedRooms;
+
+          if (availableRooms <= 0) {
+            return db.rollback(() => {
+              res.status(400).json({
+                error: "Nincs szabad szoba a kiválasztott időszakban!",
+                availableRooms: 0,
+                maxRooms: maxRooms,
               });
-            }
+            });
+          }
 
-            const updateAvailabilitySql = `
-          UPDATE accomodation_availability 
-          SET reserved_rooms = reserved_rooms + 1 
-          WHERE accomodation_id = ? AND date >= ? AND date < ?
-        `;
+          // Create the booking - the trigger will automatically update reservedRooms
+          const bookingSql = `
+            INSERT INTO bookings (userId, accommodationId, startDate, endDate, persons, totalPrice, status, createdAt) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+          `;
 
-            db.query(
-              updateAvailabilitySql,
-              [accommodationId, startDate, endDate],
-              (err) => {
+          db.query(
+            bookingSql,
+            [
+              userId,
+              accommodationId,
+              startDate,
+              endDate,
+              persons,
+              totalPrice,
+              status || "confirmed",
+            ],
+            (err, result) => {
+              if (err) {
+                return db.rollback(() => {
+                  console.error("Error creating booking:", err);
+                  res.status(500).json({ error: "Error creating booking" });
+                });
+              }
+
+              db.commit((err) => {
                 if (err) {
                   return db.rollback(() => {
-                    res
-                      .status(500)
-                      .json({ error: "Error updating availability" });
+                    res.status(500).json({ error: "Transaction commit error" });
                   });
                 }
 
-                db.commit((err) => {
-                  if (err) {
-                    return db.rollback(() => {
-                      res
-                        .status(500)
-                        .json({ error: "Transaction commit error" });
-                    });
-                  }
-
-                  res.status(201).json({
-                    id: result.insertId,
-                    message: "Booking created successfully",
-                  });
+                res.status(201).json({
+                  id: result.insertId,
+                  message: "Booking created successfully",
+                  availableRooms: availableRooms - 1,
                 });
-              }
-            );
-          }
-        );
-      }
-    );
+              });
+            }
+          );
+        }
+      );
+    });
   });
 });
 
