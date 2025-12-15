@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Gép: 127.0.0.1
--- Létrehozás ideje: 2025. Dec 09. 11:09
+-- Létrehozás ideje: 2025. Dec 09. 12:27
 -- Kiszolgáló verziója: 10.4.32-MariaDB
 -- PHP verzió: 8.2.12
 
@@ -1846,6 +1846,28 @@ CREATE TABLE `bookings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_hungarian_ci;
 
 --
+-- A tábla adatainak kiíratása `bookings`
+--
+
+INSERT INTO `bookings` (`id`, `userId`, `accommodationId`, `startDate`, `endDate`, `persons`, `totalPrice`, `status`, `createdAt`) VALUES
+(1, 1, 2, '2025-12-10', '2025-12-12', 1, 45414.00, 'confirmed', '2025-12-09 11:21:37');
+
+-- --------------------------------------------------------
+
+--
+-- Tábla szerkezet ehhez a táblához `users`
+--
+
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role` enum('user','admin') NOT NULL DEFAULT 'user',
+  `createdAt` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_hungarian_ci;
+
+--
 -- Indexek a kiírt táblákhoz
 --
 
@@ -1872,6 +1894,13 @@ ALTER TABLE `bookings`
   ADD KEY `idx_dates` (`startDate`,`endDate`);
 
 --
+-- A tábla indexei `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `email` (`email`);
+
+--
 -- A kiírt táblák AUTO_INCREMENT értéke
 --
 
@@ -1891,7 +1920,13 @@ ALTER TABLE `accomodation_images`
 -- AUTO_INCREMENT a táblához `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT a táblához `users`
+--
+ALTER TABLE `users`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Megkötések a kiírt táblákhoz
@@ -1907,3 +1942,424 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+
+
+-- 1. Special features tábla létrehozása
+CREATE TABLE IF NOT EXISTS special_features (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(100) NOT NULL,
+  shortDescription VARCHAR(255) NOT NULL,
+  icon_key VARCHAR(50) NOT NULL DEFAULT 'default'
+);
+
+-- 2. Accomodation_features kapcsolótábla létrehozása
+CREATE TABLE IF NOT EXISTS accomodation_features (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  accomodationId INT NOT NULL,
+  featureId INT NOT NULL,
+  FOREIGN KEY (accomodationId) REFERENCES accomodations(id) ON DELETE CASCADE,
+  FOREIGN KEY (featureId) REFERENCES special_features(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_accomodation_feature (accomodationId, featureId)
+);
+
+-- 3. Special features adatok beszúrása icon_key-vel
+INSERT INTO special_features (title, shortDescription, icon_key) VALUES
+('SZÉP kártya elfogadóhely', 'A szállás elfogadja a SZÉP kártyát.', 'card'),
+('Ingyenes parkolás', 'Díjmentes parkolás biztosított.', 'parking'),
+('Díjmentes Wi-Fi', 'Gyors és stabil internet mindenhol.', 'wifi'),
+('Családbarát', 'Gyerekbarát szolgáltatásokkal.', 'family'),
+('Állatbarát', 'Kisállat hozható a szállásra.', 'pet'),
+('Reggeli igényelhető', 'Finom és friss reggeli várja a vendégeket.', 'breakfast'),
+('Wellness részleg', 'Szauna, jacuzzi vagy spa szolgáltatások.', 'wellness'),
+('Klimatizált szobák', 'Légkondicionált elhelyezés.', 'ac'),
+('Panorámás kilátás', 'Egyedi kilátás a környékre.', 'view'),
+('Kert és grillező', 'Kerti pihenő és grillezés lehetősége.', 'garden'),
+('Kerékpárkölcsönzés', 'Bicikli bérelhető a helyszínen.', 'bike'),
+('Önkiszolgáló check-in', 'Gyors és érintésmentes érkezés.', 'selfcheckin'),
+('Beltéri medence', 'Egész évben használható medence.', 'pool'),
+('Fitness terem', 'Edzési lehetőség a szállás területén.', 'gym'),
+('Borkóstoló program', 'Helyi borok és borkóstoló program.', 'wine'),
+('Szauna lehetőség', 'Publikus szauna lehetőség.', 'sauna');
+
+-- 4. Procedure a random feature hozzárendeléshez
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS assign_random_features_v2$$
+
+CREATE PROCEDURE assign_random_features_v2()
+BEGIN
+  DECLARE done INT DEFAULT FALSE;
+  DECLARE accId INT;
+  DECLARE featureCount INT;
+
+  DECLARE cur CURSOR FOR SELECT id FROM accomodations;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+  -- Töröljük a meglévő kapcsolatokat
+  DELETE FROM accomodation_features;
+
+  OPEN cur;
+
+  feature_loop: LOOP
+    FETCH cur INTO accId;
+    IF done THEN
+      LEAVE feature_loop;
+    END IF;
+
+    -- 6 és 9 közötti random mennyiség
+    SET featureCount = FLOOR(6 + RAND() * 4);
+
+    -- Random feature-ök hozzárendelése
+    INSERT INTO accomodation_features (accomodationId, featureId)
+    SELECT accId, id
+    FROM special_features
+    ORDER BY RAND()
+    LIMIT featureCount;
+
+  END LOOP;
+
+  CLOSE cur;
+END$$
+
+DELIMITER ;
+
+-- 5. Procedure futtatása
+CALL assign_random_features_v2();
+
+
+
+-- Vélemények tábla létrehozása
+CREATE TABLE IF NOT EXISTS user_reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  accomodationId INT NOT NULL,
+  username VARCHAR(100) NOT NULL,
+  rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 10),
+  review_text TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (accomodationId) REFERENCES accomodations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Index létrehozása a gyorsabb lekérdezésekhez
+CREATE INDEX idx_accomodation_reviews ON user_reviews(accomodationId);
+CREATE INDEX idx_review_rating ON user_reviews(rating);
+CREATE INDEX idx_review_date ON user_reviews(created_at);
+
+-- Vélemény minták tömbje
+DROP PROCEDURE IF EXISTS generate_random_reviews;
+
+DELIMITER $$
+
+CREATE PROCEDURE generate_random_reviews()
+BEGIN
+  DECLARE done INT DEFAULT FALSE;
+  DECLARE accId INT;
+  DECLARE reviewCount INT;
+  DECLARE i INT;
+  DECLARE randomRating INT;
+  DECLARE randomName VARCHAR(100);
+  DECLARE randomReview TEXT;
+  DECLARE randomDate DATETIME;
+  
+  -- Magyar nevek
+  DECLARE names_array TEXT DEFAULT 'Kovács János,Nagy Mária,Szabó Péter,Kiss Anna,Horváth László,Tóth Éva,Varga Gábor,Molnár Zsuzsanna,Balogh István,Papp Katalin,Farkas András,Simon Ágnes,Lakatos József,Takács Eszter,Lukács Tamás';
+  
+  -- Vélemény minták
+  DECLARE reviews_array TEXT DEFAULT 'Nagyon kedves volt a személyzet, a szoba pedig tiszta és kényelmes.|A wellness részleg kifejezetten igényes, biztosan visszajövünk még.|A reggeli bőséges volt, viszont az ágy kicsit kényelmetlen.|Szuper elhelyezkedés, közel mindenhez. Kifejezetten ajánlom!|A parkolás lehetne egyszerűbb, de összességében jó élmény volt.|A medence tiszta és meleg volt, a gyerekek imádták.|A szoba hangszigetelése nem volt tökéletes, de jól aludtunk.|Nagyon jó ár-érték arány, kellemes környezet.|Gyönyörű kilátás, remek hangulat. Maximálisan elégedettek voltunk.|A vacsora finom volt, a személyzet figyelmes. Csak ajánlani tudom.|Korrekt szállás, remek kiszolgálás, biztosan visszatérünk.|Tiszta szobák, barátságos személyzet. Ajánlom mindenkinek!|Csendes, nyugodt környezet. Tökéletes pihenéshez.|Kiváló helyen van, könnyen megközelíthető.|Modern berendezés, minden igényt kielégít.|A családdal töltött hétvége felejthetetlen volt.|Remek programlehetőségek a közelben.|Az ételek változatosak és finomak voltak.|Segítőkész recepciós személyzet, gyors check-in.|Hangulatos, otthonos környezet. Jó szívvel ajánlom!';
+
+  -- CURSOR az accomodations táblához
+  DECLARE cur CURSOR FOR SELECT id FROM accomodations;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+  OPEN cur;
+
+  hotel_loop: LOOP
+    FETCH cur INTO accId;
+    IF done THEN
+      LEAVE hotel_loop;
+    END IF;
+
+    -- Véletlenszerű számú vélemény generálása (5-15 közötti)
+    SET reviewCount = FLOOR(5 + RAND() * 11);
+    SET i = 0;
+
+    WHILE i < reviewCount DO
+      -- Véletlenszerű név kiválasztása
+      SET randomName = SUBSTRING_INDEX(SUBSTRING_INDEX(names_array, ',', FLOOR(1 + RAND() * 15)), ',', -1);
+      
+      -- Véletlenszerű értékelés (6-10 közötti, hogy jó legyen az átlag)
+      SET randomRating = FLOOR(6 + RAND() * 5);
+      
+      -- Véletlenszerű vélemény szöveg kiválasztása
+      SET randomReview = SUBSTRING_INDEX(SUBSTRING_INDEX(reviews_array, '|', FLOOR(1 + RAND() * 20)), '|', -1);
+      
+      -- Véletlenszerű dátum az elmúlt 2 évből
+      SET randomDate = DATE_SUB(NOW(), INTERVAL FLOOR(RAND() * 730) DAY);
+
+      -- Vélemény beszúrása
+      INSERT INTO user_reviews (accomodationId, username, rating, review_text, created_at)
+      VALUES (accId, randomName, randomRating, randomReview, randomDate);
+
+      SET i = i + 1;
+    END WHILE;
+
+  END LOOP;
+
+  CLOSE cur;
+  
+  SELECT 'Vélemények sikeresen generálva!' AS message;
+END$$
+
+DELIMITER ;
+
+-- Stored procedure futtatása
+CALL generate_random_reviews();
+
+-- Átlag értékelés frissítése az accomodations táblában
+UPDATE accomodations a
+SET avgrating = (
+  SELECT ROUND(AVG(rating), 1)
+  FROM user_reviews
+  WHERE accomodationId = a.id
+)
+WHERE EXISTS (
+  SELECT 1 FROM user_reviews WHERE accomodationId = a.id
+);
+
+-- Ellenőrzés
+SELECT 
+  a.name,
+  a.avgrating AS szallas_atlag,
+  COUNT(r.id) AS velemeny_db,
+  ROUND(AVG(r.rating), 1) AS szamolt_atlag
+FROM accomodations a
+LEFT JOIN user_reviews r ON a.id = r.accomodationId
+GROUP BY a.id, a.name, a.avgrating
+ORDER BY a.name;
+
+
+-- ================================================================
+-- ROOM AVAILABILITY SYSTEM FOR ACCOMMODATIONS
+-- ================================================================
+-- This script adds room availability tracking to the accomodations table
+-- and creates triggers to automatically update availability on bookings
+-- ================================================================
+
+-- Step 1: Add new columns to accomodations table
+-- ================================================================
+ALTER TABLE `accomodations` 
+ADD COLUMN `maxRooms` INT(11) NOT NULL DEFAULT 5 COMMENT 'Maximum number of rooms available',
+ADD COLUMN `reservedRooms` INT(11) NOT NULL DEFAULT 0 COMMENT 'Currently reserved rooms',
+ADD COLUMN `availableRooms` INT(11) GENERATED ALWAYS AS (`maxRooms` - `reservedRooms`) VIRTUAL COMMENT 'Available rooms (calculated)';
+
+-- Step 2: Update existing accommodations with random maxRooms (1-10)
+-- ================================================================
+-- Set random maxRooms for each accommodation
+UPDATE `accomodations` SET `maxRooms` = 7 WHERE `id` = 1;  -- Hotel Karos Spa Zalakaros
+UPDATE `accomodations` SET `maxRooms` = 4 WHERE `id` = 2;  -- Termál Hotel Vesta Tápiószecső
+UPDATE `accomodations` SET `maxRooms` = 9 WHERE `id` = 3;  -- Hotel Palota Lillafüred
+UPDATE `accomodations` SET `maxRooms` = 6 WHERE `id` = 4;  -- Hunguest Hotel Gyula
+UPDATE `accomodations` SET `maxRooms` = 3 WHERE `id` = 5;  -- Hotel Villa Völgy Eger
+
+-- Step 3: Set initial reservedRooms based on existing bookings
+-- ================================================================
+-- Update reservedRooms for accommodation ID 2 (has 1 active booking)
+UPDATE `accomodations` SET `reservedRooms` = 1 WHERE `id` = 2;
+
+-- Step 4: Create trigger to update availability when booking is created
+-- ================================================================
+DELIMITER $$
+
+CREATE TRIGGER `after_booking_insert` 
+AFTER INSERT ON `bookings`
+FOR EACH ROW
+BEGIN
+    -- Increase reserved rooms count for the accommodation
+    UPDATE `accomodations` 
+    SET `reservedRooms` = `reservedRooms` + 1 
+    WHERE `id` = NEW.accommodationId;
+END$$
+
+DELIMITER ;
+
+-- Step 5: Create trigger to update availability when booking is updated
+-- ================================================================
+DELIMITER $$
+
+CREATE TRIGGER `after_booking_update` 
+AFTER UPDATE ON `bookings`
+FOR EACH ROW
+BEGIN
+    -- If booking status changed to cancelled, decrease reserved rooms
+    IF OLD.status != 'cancelled' AND NEW.status = 'cancelled' THEN
+        UPDATE `accomodations` 
+        SET `reservedRooms` = `reservedRooms` - 1 
+        WHERE `id` = NEW.accommodationId AND `reservedRooms` > 0;
+    END IF;
+    
+    -- If booking status changed from cancelled to active, increase reserved rooms
+    IF OLD.status = 'cancelled' AND NEW.status != 'cancelled' THEN
+        UPDATE `accomodations` 
+        SET `reservedRooms` = `reservedRooms` + 1 
+        WHERE `id` = NEW.accommodationId;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- Step 6: Create trigger to update availability when booking is deleted
+-- ================================================================
+DELIMITER $$
+
+CREATE TRIGGER `after_booking_delete` 
+AFTER DELETE ON `bookings`
+FOR EACH ROW
+BEGIN
+    -- Decrease reserved rooms count when booking is deleted
+    IF OLD.status != 'cancelled' THEN
+        UPDATE `accomodations` 
+        SET `reservedRooms` = `reservedRooms` - 1 
+        WHERE `id` = OLD.accommodationId AND `reservedRooms` > 0;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- Step 7: Create stored procedure to check room availability for date range
+-- ================================================================
+DELIMITER $$
+
+CREATE PROCEDURE `CheckRoomAvailability`(
+    IN p_accommodationId INT,
+    IN p_startDate DATE,
+    IN p_endDate DATE,
+    OUT p_availableRooms INT
+)
+BEGIN
+    DECLARE v_maxRooms INT;
+    DECLARE v_bookedRooms INT;
+    
+    -- Get max rooms for the accommodation
+    SELECT `maxRooms` INTO v_maxRooms
+    FROM `accomodations`
+    WHERE `id` = p_accommodationId;
+    
+    -- Count overlapping bookings (excluding cancelled)
+    SELECT COUNT(*) INTO v_bookedRooms
+    FROM `bookings`
+    WHERE `accommodationId` = p_accommodationId
+        AND `status` != 'cancelled'
+        AND (
+            (`startDate` <= p_startDate AND `endDate` > p_startDate)
+            OR (`startDate` < p_endDate AND `endDate` >= p_endDate)
+            OR (`startDate` >= p_startDate AND `endDate` <= p_endDate)
+        );
+    
+    -- Calculate available rooms
+    SET p_availableRooms = v_maxRooms - v_bookedRooms;
+END$$
+
+DELIMITER ;
+
+-- ================================================================
+-- VERIFICATION QUERIES
+-- ================================================================
+-- Run these queries to verify the setup
+
+-- View all accommodations with room availability
+SELECT 
+    id,
+    name,
+    maxRooms,
+    reservedRooms,
+    availableRooms,
+    CASE 
+        WHEN availableRooms >= 3 THEN '🟢 Many rooms available'
+        WHEN availableRooms BETWEEN 1 AND 2 THEN '🟡 Few rooms left'
+        WHEN availableRooms = 0 THEN '🔴 Fully booked'
+    END AS availability_status
+FROM `accomodations`
+ORDER BY id;
+
+-- View bookings with accommodation details
+SELECT 
+    b.id,
+    b.startDate,
+    b.endDate,
+    b.persons,
+    b.status,
+    a.name AS accommodation_name,
+    a.availableRooms
+FROM `bookings` b
+JOIN `accomodations` a ON b.accommodationId = a.id
+ORDER BY b.startDate DESC;
+
+-- ================================================================
+-- USAGE EXAMPLES
+-- ================================================================
+
+-- Example 1: Check availability for specific dates
+-- CALL CheckRoomAvailability(1, '2025-12-20', '2025-12-25', @available);
+-- SELECT @available AS 'Available Rooms';
+
+-- Example 2: Create a new booking (triggers will automatically update availability)
+-- INSERT INTO `bookings` (userId, accommodationId, startDate, endDate, persons, totalPrice, status)
+-- VALUES (1, 1, '2025-12-20', '2025-12-25', 2, 107205.00, 'confirmed');
+
+-- Example 3: Cancel a booking (trigger will automatically free up the room)
+-- UPDATE `bookings` SET status = 'cancelled' WHERE id = 1;
+
+-- ================================================================
+-- NOTES
+-- ================================================================
+-- 1. availableRooms is a VIRTUAL column - it's automatically calculated
+-- 2. Triggers ensure availability is always up-to-date
+-- 3. Use the CheckRoomAvailability procedure for date-specific queries
+-- 4. The system prevents overbooking by tracking reservedRooms
+-- ================================================================
+
+
+-- ================================================================
+-- RANDOM ROOM AVAILABILITY DATA FOR ALL ACCOMMODATIONS
+-- ================================================================
+-- This script provides randomized maxRooms values for accommodations
+-- Use this if you want different random values each time
+-- ================================================================
+
+-- Randomized room counts (different from the main script)
+UPDATE `accomodations` SET `maxRooms` = 8, `reservedRooms` = 0 WHERE `id` = 1;  -- Hotel Karos Spa Zalakaros (8 rooms)
+UPDATE `accomodations` SET `maxRooms` = 5, `reservedRooms` = 1 WHERE `id` = 2;  -- Termál Hotel Vesta Tápiószecső (5 rooms, 1 reserved)
+UPDATE `accomodations` SET `maxRooms` = 10, `reservedRooms` = 0 WHERE `id` = 3; -- Hotel Palota Lillafüred (10 rooms)
+UPDATE `accomodations` SET `maxRooms` = 6, `reservedRooms` = 0 WHERE `id` = 4;  -- Hunguest Hotel Gyula (6 rooms)
+UPDATE `accomodations` SET `maxRooms` = 2, `reservedRooms` = 0 WHERE `id` = 5;  -- Hotel Villa Völgy Eger (2 rooms)
+
+-- Alternative random distribution option 1:
+-- UPDATE `accomodations` SET `maxRooms` = 3, `reservedRooms` = 0 WHERE `id` = 1;
+-- UPDATE `accomodations` SET `maxRooms` = 9, `reservedRooms` = 1 WHERE `id` = 2;
+-- UPDATE `accomodations` SET `maxRooms` = 7, `reservedRooms` = 0 WHERE `id` = 3;
+-- UPDATE `accomodations` SET `maxRooms` = 4, `reservedRooms` = 0 WHERE `id` = 4;
+-- UPDATE `accomodations` SET `maxRooms` = 6, `reservedRooms` = 0 WHERE `id` = 5;
+
+-- Alternative random distribution option 2:
+-- UPDATE `accomodations` SET `maxRooms` = 5, `reservedRooms` = 0 WHERE `id` = 1;
+-- UPDATE `accomodations` SET `maxRooms` = 2, `reservedRooms` = 1 WHERE `id` = 2;
+-- UPDATE `accomodations` SET `maxRooms` = 8, `reservedRooms` = 0 WHERE `id` = 3;
+-- UPDATE `accomodations` SET `maxRooms` = 10, `reservedRooms` = 0 WHERE `id` = 4;
+-- UPDATE `accomodations` SET `maxRooms` = 4, `reservedRooms` = 0 WHERE `id` = 5;
+
+-- ================================================================
+-- Verify the results
+-- ================================================================
+SELECT 
+    id,
+    name,
+    maxRooms,
+    reservedRooms,
+    availableRooms,
+    CASE 
+        WHEN availableRooms >= 3 THEN 'Many available (3+)'
+        WHEN availableRooms BETWEEN 1 AND 2 THEN 'Few rooms (1-2)'
+        WHEN availableRooms = 0 THEN 'Fully booked'
+    END AS status
+FROM `accomodations`
+ORDER BY id;
