@@ -14,4 +14,7 @@ export interface Accomodation {
   maxRooms: number; // Maximum number of rooms available (1-10)
   reservedRooms: number; // Currently reserved rooms
   availableRooms: number; // Available rooms (calculated: maxRooms - reservedRooms)
+  // optional active flags; backend might use 'active' or 'is_active'
+  active?: number | boolean;
+  is_active?: number | boolean;
 }

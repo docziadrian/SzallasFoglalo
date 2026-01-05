@@ -17,13 +17,16 @@ import { SafePipe } from '../../pipes/SafePipe';
 
 import { UserReview, ReviewStats } from '../../interfaces/review';
 
-
-
-
 @Component({
   selector: 'app-specificszallas',
   standalone: true,
-  imports: [CommonModule, FormsModule, FullCalendarModule, FeatureIconComponent, SafePipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    FullCalendarModule,
+    FeatureIconComponent,
+    SafePipe,
+  ],
   templateUrl: './specificszallas.component.html',
   styleUrl: './specificszallas.component.scss',
 })
@@ -75,9 +78,8 @@ export class SpecificszallasComponent implements OnInit {
   tempCheckInDate: Date | null = null;
   tempCheckOutDate: Date | null = null;
 
-
   // Leiras - összecsukva v. nem
-  
+
   isDescriptionExpanded: boolean = false;
   descriptionPreviewLength: number = 1000;
 
@@ -86,11 +88,17 @@ export class SpecificszallasComponent implements OnInit {
     if (this.szallasData.description.length <= this.descriptionPreviewLength) {
       return this.szallasData.description;
     }
-    return this.szallasData.description.substring(0, this.descriptionPreviewLength) + '...';
+    return (
+      this.szallasData.description.substring(0, this.descriptionPreviewLength) +
+      '...'
+    );
   }
 
   get shouldShowMoreButton(): boolean {
-    return (this.szallasData?.description?.length || 0) > this.descriptionPreviewLength;
+    return (
+      (this.szallasData?.description?.length || 0) >
+      this.descriptionPreviewLength
+    );
   }
 
   toggleDescription(): void {
@@ -98,7 +106,6 @@ export class SpecificszallasComponent implements OnInit {
   }
 
   // Leiras vége
-
 
   // TÉRKÉP
   // Térkép navigáció
@@ -116,7 +123,6 @@ export class SpecificszallasComponent implements OnInit {
     window.open(url, '_blank');
   }
 
-
   //TODO: API Key a Google Cloud Console bol
   get mapEmbedUrl(): string {
     if (!this.szallasData) return '';
@@ -125,7 +131,6 @@ export class SpecificszallasComponent implements OnInit {
     return `https://www.openstreetmap.org/export/embed.html?bbox=19.0,47.0,19.1,47.1&layer=mapnik&marker=${this.szallasData.city}`;
   }
   //TÉRKÉP VÉGE
-
 
   constructor(
     private route: ActivatedRoute,
@@ -137,12 +142,28 @@ export class SpecificszallasComponent implements OnInit {
     this.checkInDate = 'Kérlek válassz dátumot!';
     this.checkOutDate = 'Kérlek válassz dátumot!';
 
+    this.route.queryParams.subscribe((params) => {
+      if (params['startDate']) {
+        this.checkInDate = params['startDate'];
+        this.tempCheckInDate = new Date(params['startDate']);
+      }
+      if (params['endDate']) {
+        this.checkOutDate = params['endDate'];
+        this.tempCheckOutDate = new Date(params['endDate']);
+      }
+      if (params['people']) {
+        this.guests = Number(params['people']);
+      }
+      this.calculatePrice();
+      this.updateCalendarEvents();
+    });
+
     this.route.params.subscribe(async (params) => {
       this.urlId = params['id'];
       if (this.urlId) {
         await this.loadAccomodationData();
         await this.loadAvailability();
-        
+
         // Vélemények betöltése a szállás adatok után
         await this.loadReviews();
         await this.loadReviewStats();
@@ -157,7 +178,7 @@ export class SpecificszallasComponent implements OnInit {
       console.warn('Szállás adatok még nem töltődtek be');
       return;
     }
-    
+
     try {
       const response = await this.apiservice.selectAccomodationReviews(
         this.szallasData.id,
@@ -165,7 +186,7 @@ export class SpecificszallasComponent implements OnInit {
         0,
         'recent'
       );
-      
+
       if (response.status === 200) {
         this.reviews = response.data;
         console.log('Vélemények betöltve:', this.reviews);
@@ -182,12 +203,12 @@ export class SpecificszallasComponent implements OnInit {
       console.warn('Szállás adatok még nem töltődtek be');
       return;
     }
-    
+
     try {
       const response = await this.apiservice.selectAccomodationReviewStats(
         this.szallasData.id
       );
-      
+
       if (response.status === 200) {
         this.reviewStats = response.data;
         console.log('Vélemény statisztikák betöltve:', this.reviewStats);
@@ -199,22 +220,23 @@ export class SpecificszallasComponent implements OnInit {
     }
   }
 
-  
   async toggleReviews() {
     this.showAllReviews = !this.showAllReviews;
     await this.loadReviews();
   }
 
   getStarArray(rating: number): boolean[] {
-    return Array(10).fill(false).map((_, i) => i < rating);
+    return Array(10)
+      .fill(false)
+      .map((_, i) => i < rating);
   }
 
   formatDateVelemeny(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleDateString('hu-HU', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString('hu-HU', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
     });
   }
 
@@ -240,6 +262,7 @@ export class SpecificszallasComponent implements OnInit {
       );
       if (response.status === 200 && response.data) {
         this.szallasData = response.data;
+        this.calculatePrice();
         await this.loadImages();
         await this.loadFeatures();
       } else {
@@ -484,15 +507,13 @@ export class SpecificszallasComponent implements OnInit {
       this.checkOutDate !== 'Kérlek válassz dátumot!' &&
       this.szallasData
     ) {
-      const checkIn = new Date(this.checkInDate);
-      const checkOut = new Date(this.checkOutDate);
-      checkIn.setHours(0, 0, 0, 0);
-      checkOut.setHours(0, 0, 0, 0);
-
-      const diffTime = checkOut.getTime() - checkIn.getTime();
-      this.nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const start = new Date(this.checkInDate);
+      const end = new Date(this.checkOutDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      this.nights = diffDays;
       this.totalPrice =
-        this.nights * this.guests * this.szallasData.priceforone;
+        this.nights * this.szallasData.priceforone * this.guests;
     }
   }
 

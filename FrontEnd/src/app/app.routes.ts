@@ -3,6 +3,9 @@ import { LandingpageComponent } from '../components/landingpage/landingpage.comp
 import { SpecificszallasComponent } from '../components/specificszallas/specificszallas.component';
 import { RegistrationComponent } from '../components/auth/registration/registration.component';
 import { AllAccomodationsComponent } from '../components/all-accomodations/all-accomodations.component';
+import { BestAccomodationsComponent } from '../components/best-accomodations/best-accomodations.component';
+import { PopularAccomodationsComponent } from '../components/popular-accomodations/popular-accomodations.component';
+import { AdminComponent } from '../components/admin/admin.component';
 
 export const routes: Routes = [
   {
@@ -13,9 +16,25 @@ export const routes: Routes = [
     path: 'szallasok/:id',
     component: SpecificszallasComponent,
   },
-  
+
   {
     path: 'accomodations',
-    component: AllAccomodationsComponent
-  }
+    component: AllAccomodationsComponent,
+  },
+  {
+    path: 'accomodations/destination/:destination',
+    component: AllAccomodationsComponent,
+  },
+  {
+    path: 'best',
+    component: BestAccomodationsComponent,
+  },
+  {
+    path: 'popular',
+    component: PopularAccomodationsComponent,
+  },
+  {
+    path: 'admin',
+    component: AdminComponent,
+  },
 ];

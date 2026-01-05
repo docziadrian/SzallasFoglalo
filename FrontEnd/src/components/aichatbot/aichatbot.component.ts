@@ -9,6 +9,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AIMessage } from '../../interfaces/aimessageinterface';
 import { ApiService } from '../../services/api.service';
+import { ChatService } from '../../services/chat.service';
 
 @Component({
   selector: 'app-aichatbot',
@@ -26,9 +27,19 @@ export class AichatbotComponent implements OnInit, AfterViewChecked {
   isLoading = false;
   private shouldScroll = false;
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private chatService: ChatService
+  ) {}
 
   ngOnInit() {
+    this.chatService.isOpen$.subscribe((isOpen) => {
+      this.isOpen = isOpen;
+      if (isOpen) {
+        this.shouldScroll = true;
+      }
+    });
+
     this.loadMessagesFromCookie();
 
     if (this.messages.length === 0) {
@@ -44,10 +55,7 @@ export class AichatbotComponent implements OnInit, AfterViewChecked {
   }
 
   toggleChat() {
-    this.isOpen = !this.isOpen;
-    if (this.isOpen) {
-      this.shouldScroll = true;
-    }
+    this.chatService.toggleChat();
   }
 
   addInitialMessage() {

@@ -3,8 +3,18 @@ const router = express.Router();
 const db = require("./db");
 
 // Összes foglalás lekérése
-router.get("/", (req, res) => {
-  const sql = "SELECT * FROM bookings";
+const adminAuth = require("../middlewares/adminAuth");
+
+// Get all bookings with joined user and accomodation info for admin
+router.get("/", adminAuth, (req, res) => {
+  const sql = `
+    SELECT b.id, b.userId, b.accommodationId, b.startDate, b.endDate, b.persons, b.totalPrice, b.status,
+           u.name as userName, a.name as accomodationName
+    FROM bookings b
+    LEFT JOIN users u ON b.userId = u.id
+    LEFT JOIN accomodations a ON b.accommodationId = a.id
+    ORDER BY b.createdAt DESC
+  `;
   db.query(sql, (err, results) => {
     if (err) {
       console.error("Error fetching bookings:", err);

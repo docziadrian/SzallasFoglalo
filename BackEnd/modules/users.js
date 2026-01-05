@@ -7,7 +7,105 @@ const bcrypt = require("bcrypt");
 const SALT_ROUNDS = 10;
 
 router.get("/", (req, res) => {
-  res.status(200).send("Userek itt futnak");
+  // Return users including their active flag if present
+  const sql =
+    "SELECT id, name, email, role, createdAt, active, is_active FROM users ORDER BY createdAt DESC";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    res.json(results);
+  });
+});
+
+//DELETE user by id (admin)
+router.delete("/:id", (req, res) => {
+  const id = req.params.id;
+  const sql = "DELETE FROM users WHERE id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Error deleting user:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    res.json({ message: "User deleted" });
+  });
+});
+
+// Update user fields (admin)
+router.patch("/:id", (req, res) => {
+  const id = req.params.id;
+  // allow 'active' so admin can enable/disable users via standard PATCH
+  const allowed = ["name", "email", "role", "active"];
+  const updates = {};
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) {
+      // convert boolean active to numeric for MySQL tinyint if necessary
+      updates[k] =
+        k === "active" && typeof req.body[k] === "boolean"
+          ? req.body[k]
+            ? 1
+            : 0
+          : req.body[k];
+    }
+  }
+
+  const keys = Object.keys(updates);
+  if (keys.length === 0)
+    return res.status(400).json({ error: "No editable fields provided" });
+
+  const sql = `UPDATE users SET ${keys
+    .map((k) => k + " = ?")
+    .join(", ")} WHERE id = ?`;
+  const params = keys.map((k) => updates[k]).concat([id]);
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      // If the DB doesn't have 'active' column, MySQL will return ER_BAD_FIELD_ERROR; surface a friendly message
+      if (err.code === "ER_BAD_FIELD_ERROR") {
+        return res.status(400).json({
+          error: "One of the supplied fields doesn't exist on users table",
+          details: err.message,
+        });
+      }
+      console.error("Error updating user:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    res.json({ message: "User updated" });
+  });
+});
+
+// Toggle active/inactive for user (tries 'active' then 'is_active')
+router.patch("/:id/toggle-active", (req, res) => {
+  const id = req.params.id;
+  const value = req.body.active; // expected boolean
+  if (typeof value !== "boolean")
+    return res.status(400).json({ error: "Provide boolean `active` in body" });
+
+  const tryUpdate = (col, cb) => {
+    const sql = `UPDATE users SET ${col} = ? WHERE id = ?`;
+    db.query(sql, [value ? 1 : 0, id], (err, result) => {
+      if (err) return cb(err);
+      return cb(null, result);
+    });
+  };
+
+  // Try 'active' then 'is_active'
+  tryUpdate("active", (err, r) => {
+    if (!err)
+      return res.json({ message: "User active updated", column: "active" });
+    // try is_active
+    tryUpdate("is_active", (err2, r2) => {
+      if (!err2)
+        return res.json({
+          message: "User active updated",
+          column: "is_active",
+        });
+      console.error("Error toggling active on users:", err, err2);
+      res.status(400).json({
+        error: "No 'active' column found on users table or update failed",
+      });
+    });
+  });
 });
 
 //LOGIN method
@@ -51,6 +149,17 @@ router.post("/login", async (req, res) => {
 
         // Remove password from response
         delete user.password;
+
+        // store minimal user in session for auth checks
+        if (req.session) {
+          req.session.user = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            active: user.active || user.is_active || 1,
+          };
+        }
 
         console.log(
           `[POST /${table}/login] -> Sikeres bejelentkezés: ${email}`
@@ -106,9 +215,9 @@ router.post("/registration", async (req, res) => {
         // Hash password with bcrypt
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-        // Insert new user
+        // Insert new user (default active = 1)
         db.query(
-          `INSERT INTO ${table} (name, email, password, role) VALUES (?,?,?, 'user')`,
+          `INSERT INTO ${table} (name, email, password, role, active) VALUES (?,?,?, 'user', 1)`,
           [name, email, hashedPassword],
           (err, results) => {
             if (err) {
@@ -119,35 +228,12 @@ router.post("/registration", async (req, res) => {
               `[POST /${table}/registration] -> 1 új felhasználó regisztrálva: ${email}`
             );
 
-            /* //TODO: Email küldés regisztráció után
-            const transporter = nodemailer.createTransport({
-              host: "smtp.ethereal.email",
-              port: 587,
-              secure: false,
-              auth: {
-                user: "maddison53@ethereal.email",
-                pass: "jn7jnAPss4f63QBp6D",
-              },
-            });
-
-            (async () => {
-              const info = await transporter.sendMail({
-                from: '"Maddison Foo Koch" <maddison53@ethereal.email>',
-                to: email,
-                subject: "Sikeres regisztráció ✔",
-                text: `Kedves ${name}! Sikeresen regisztráltál az oldalunkon!`,
-                html: `<b>Kedves ${name}!</b><p>Sikeresen regisztráltál az oldalunkon!</p>`,
-              });
-
-              console.log("Message sent:", info.messageId);
-            })();
-            */
-
             const registeredUser = {
               id: results.insertId,
               name,
               email,
               role: "user",
+              active: 1,
             };
 
             res.status(200).json(registeredUser);

@@ -10,6 +10,7 @@
       <span class="font-sans">support&#64;foglaljle.hu</span>
       <span class="border-r border-white h-5 mx-1"></span>
       <button
+        (click)="openChat()"
         class="font-sans border-b border-white hover:border-b-2 transition-all"
       >
         Csevegés indítása
@@ -46,6 +47,7 @@
           class="flex items-stretch bg-white rounded-full shadow-2xl overflow-hidden"
         >
           <input
+            [(ngModel)]="destination"
             type="text"
             placeholder="Hová utaznál?"
             class="flex-1 px-6 py-4 text-gray-700 focus:outline-none text-base xl:text-lg min-w-0"
@@ -57,8 +59,11 @@
               >Érkezés:</label
             >
             <input
+              [(ngModel)]="startDate"
               type="date"
               class="text-gray-700 focus:outline-none text-sm xl:text-base"
+              [min]="minDate"
+              [max]="maxDate"
             />
           </div>
           <div
@@ -68,8 +73,11 @@
               >Távozás:</label
             >
             <input
+              [(ngModel)]="endDate"
               type="date"
               class="text-gray-700 focus:outline-none text-sm xl:text-base"
+              [min]="minDate"
+              [max]="maxDate"
             />
           </div>
           <div
@@ -89,6 +97,7 @@
               />
             </svg>
             <input
+              [(ngModel)]="people"
               type="number"
               min="1"
               value="2"
@@ -97,6 +106,7 @@
           </div>
         </div>
         <button
+          (click)="search()"
           class="w-full bg-[#E62727] text-white px-8 py-4 rounded-full font-semibold hover:bg-red-700 transition-colors shadow-lg text-base xl:text-lg"
         >
           Keresés

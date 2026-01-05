@@ -3,7 +3,11 @@ const router = express.Router();
 const db = require("./db");
 
 router.get("/", (req, res) => {
-  const sql = "SELECT * FROM accomodations";
+  // If ?all=true is provided, return all accomodations (admin usage). Otherwise only active ones.
+  const all = req.query.all === "true";
+  const sql = all
+    ? "SELECT * FROM accomodations"
+    : "SELECT * FROM accomodations WHERE (active = 1 OR is_active = 1)";
   db.query(sql, (err, results) => {
     if (err) {
       console.error("Error fetching accomodations:", err);
@@ -13,7 +17,6 @@ router.get("/", (req, res) => {
   });
 });
 
-// A szállás különlegességei endpoint
 router.get("/:id/features", (req, res) => {
   const accomodationId = req.params.id;
   const sql = `
@@ -32,12 +35,11 @@ router.get("/:id/features", (req, res) => {
   });
 });
 
-// Vélemények lekérése szálláshoz
 router.get("/:id/reviews", (req, res) => {
   const accomodationId = req.params.id;
   const limit = parseInt(req.query.limit) || 10;
   const offset = parseInt(req.query.offset) || 0;
-  const sort = req.query.sort || "recent"; // 'recent' vagy 'rating'
+  const sort = req.query.sort || "recent";
 
   let orderBy = "created_at DESC";
   if (sort === "rating") {
@@ -73,7 +75,6 @@ router.get("/:id/reviews", (req, res) => {
   });
 });
 
-// Vélemény statisztikák
 router.get("/:id/reviews/stats", (req, res) => {
   const accomodationId = req.params.id;
 
@@ -138,7 +139,6 @@ router.get("/:id/availability", (req, res) => {
     req.query.startDate || new Date().toISOString().split("T")[0];
   const endDate = req.query.endDate;
 
-  // First, get the accommodation's max rooms
   const getAccommodationSql =
     "SELECT maxRooms, reservedRooms FROM accomodations WHERE id = ?";
 
@@ -154,7 +154,6 @@ router.get("/:id/availability", (req, res) => {
 
     const maxRooms = accResults[0].maxRooms;
 
-    // Generate date range
     const start = new Date(startDate);
     const end = endDate
       ? new Date(endDate)
@@ -165,7 +164,6 @@ router.get("/:id/availability", (req, res) => {
       dates.push(new Date(d).toISOString().split("T")[0]);
     }
 
-    // Get bookings that overlap with our date range
     const bookingsSql = `
       SELECT startDate, endDate 
       FROM bookings 
@@ -187,9 +185,7 @@ router.get("/:id/availability", (req, res) => {
           return res.status(500).json({ error: "Internal server error" });
         }
 
-        // Calculate availability for each date
         const availability = dates.map((date) => {
-          // Count how many bookings overlap with this date
           const reservedRooms = bookings.filter((booking) => {
             const bookingStart = new Date(booking.startDate)
               .toISOString()
@@ -226,6 +222,146 @@ router.get("/:id", (req, res) => {
       return res.status(404).json({ error: "Accomodation not found" });
     }
     res.json(results[0]);
+  });
+});
+
+router.post("/", (req, res) => {
+  const {
+    name,
+    city,
+    address,
+    priceforone,
+    max_guests,
+    description,
+    cover_image,
+    avgrating,
+  } = req.body;
+
+  // Map frontend 'address' to 'street' and create 'full_address'
+  // 'max_guests' is removed from INSERT as it doesn't exist in the DB schema provided
+  const street = address;
+  const full_address = `${city}, ${address}`;
+  const title = name; // Use name as title
+
+  const sql = `INSERT INTO accomodations (name, city, street, full_address, priceforone, description, cover_image, avgrating, title) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  db.query(
+    sql,
+    [
+      name,
+      city,
+      street,
+      full_address,
+      priceforone,
+      description,
+      cover_image,
+      avgrating,
+      title,
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Error inserting accomodation:", err);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+      res.json({ insertId: result.insertId, message: "Accomodation created" });
+    }
+  );
+});
+
+router.delete("/:id", (req, res) => {
+  const id = req.params.id;
+  const sql = "DELETE FROM accomodations WHERE id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Error deleting accomodation:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    res.json({ message: "Accomodation deleted" });
+  });
+});
+
+// Update accomodation fields
+router.patch("/:id", (req, res) => {
+  const id = req.params.id;
+  // allow 'active' so admin can enable/disable accomodations via standard PATCH
+  const allowed = [
+    "name",
+    "city",
+    "street",
+    "full_address",
+    "priceforone",
+    "description",
+    "cover_image",
+    "title",
+    "active",
+  ];
+  const updates = {};
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) {
+      updates[k] =
+        k === "active" && typeof req.body[k] === "boolean"
+          ? req.body[k]
+            ? 1
+            : 0
+          : req.body[k];
+    }
+  }
+  const keys = Object.keys(updates);
+  if (keys.length === 0)
+    return res.status(400).json({ error: "No editable fields provided" });
+
+  const sql = `UPDATE accomodations SET ${keys
+    .map((k) => k + " = ?")
+    .join(", ")} WHERE id = ?`;
+  const params = keys.map((k) => updates[k]).concat([id]);
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      if (err.code === "ER_BAD_FIELD_ERROR") {
+        return res.status(400).json({
+          error:
+            "One of the supplied fields doesn't exist on accomodations table",
+          details: err.message,
+        });
+      }
+      console.error("Error updating accomodation:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    res.json({ message: "Accomodation updated" });
+  });
+});
+
+// Toggle active/inactive for accomodation (tries 'active' then 'is_active')
+router.patch("/:id/toggle-active", (req, res) => {
+  const id = req.params.id;
+  const value = req.body.active; // expected boolean
+  if (typeof value !== "boolean")
+    return res.status(400).json({ error: "Provide boolean `active` in body" });
+
+  const tryUpdate = (col, cb) => {
+    const sql = `UPDATE accomodations SET ${col} = ? WHERE id = ?`;
+    db.query(sql, [value ? 1 : 0, id], (err, result) => {
+      if (err) return cb(err);
+      return cb(null, result);
+    });
+  };
+
+  tryUpdate("active", (err, r) => {
+    if (!err)
+      return res.json({
+        message: "Accomodation active updated",
+        column: "active",
+      });
+    tryUpdate("is_active", (err2, r2) => {
+      if (!err2)
+        return res.json({
+          message: "Accomodation active updated",
+          column: "is_active",
+        });
+      console.error("Error toggling active on accomodations:", err, err2);
+      res.status(400).json({
+        error:
+          "No 'active' column found on accomodations table or update failed",
+      });
+    });
   });
 });
 

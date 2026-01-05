@@ -83,12 +83,14 @@
     <div class="flex justify-between items-center h-16 lg:h-18">
       <section class="flex items-center space-x-2 sm:space-x-3">
         <a href="/" class="flex items-center space-x-0 sm:-space-x-2 group">
-          <img 
-            src="/assets/pictures/logo.png" 
-            alt="FoglaljLe Logo" 
-            class="h-8 w-8 sm:h-10 sm:w-10 lg:h-20 lg:w-20 object-contain transition-transform duration-200 "
+          <img
+            src="/assets/pictures/logo.png"
+            alt="FoglaljLe Logo"
+            class="h-8 w-8 sm:h-10 sm:w-10 lg:h-20 lg:w-20 object-contain transition-transform duration-200"
+          />
+          <span
+            class="text-[#E62727] text-lg sm:text-xl lg:text-2xl font-bold whitespace-nowrap"
           >
-          <span class="text-[#E62727] text-lg sm:text-xl lg:text-2xl font-bold whitespace-nowrap">
             FoglaljLe
           </span>
         </a>
@@ -98,23 +100,27 @@
         <a
           href="/accomodations/"
           class="text-gray-700 hover:text-[#E62727] transition-colors text-sm font-medium"
-          >ÖSSZES SZÁLLÁS</a
         >
+          Összes szállás
+        </a>
         <a
-          href="/accomodations/best/"
+          href="/best"
           class="text-gray-700 hover:text-[#E62727] transition-colors text-sm font-medium"
-          >LEGJOBB SZÁLLÁSOK</a
         >
+          Legjobb szállások
+        </a>
         <a
-          href="/nepszeru"
-          class="text-gray-700 hover:text-[#E62727] transition-colors text-sm"
-          >Népszerű úti célok</a
+          href="/popular"
+          class="text-gray-700 hover:text-[#E62727] transition-colors text-sm font-medium"
         >
-        <a
-          href="/ugyfelszolgalat"
-          class="text-gray-700 hover:text-[#E62727] transition-colors text-sm"
-          >Ügyfélszolgálat</a
+          Népszerű úti célok
+        </a>
+        <button
+          (click)="openChat()"
+          class="text-gray-700 hover:text-[#E62727] transition-colors text-sm font-medium"
         >
+          Ügyfélszolgálat
+        </button>
         <div class="w-px h-10 bg-gray-300"></div>
 
         <div *ngIf="!isLoggedIn">

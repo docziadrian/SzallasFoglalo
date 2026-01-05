@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { RegistrationComponent } from '../auth/registration/registration.component';
 import { LoginComponent } from '../auth/login/login.component';
 import { SessionService } from '../../services/session.service';
 import { AuthService } from '../../services/auth.service';
+import { ChatService } from '../../services/chat.service';
 
 @Component({
   selector: 'app-navbar',
@@ -27,7 +28,8 @@ export class NavbarComponent implements OnInit {
   constructor(
     private sessionService: SessionService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private chatService: ChatService
   ) {}
 
   ngOnInit() {
@@ -104,5 +106,9 @@ export class NavbarComponent implements OnInit {
     this.router.navigate(['/']).then(() => {
       window.location.reload();
     });
+  }
+
+  openChat() {
+    this.chatService.openChat();
   }
 }
