@@ -6,6 +6,8 @@ import { AllAccomodationsComponent } from '../components/all-accomodations/all-a
 import { BestAccomodationsComponent } from '../components/best-accomodations/best-accomodations.component';
 import { PopularAccomodationsComponent } from '../components/popular-accomodations/popular-accomodations.component';
 import { AdminComponent } from '../components/admin/admin.component';
+import { PaymentSuccessComponent } from '../components/payment-success/payment-success.component';
+import { PaymentCancelComponent } from '../components/payment-cancel/payment-cancel.component';
 
 export const routes: Routes = [
   {
@@ -36,5 +38,13 @@ export const routes: Routes = [
   {
     path: 'admin',
     component: AdminComponent,
+  },
+  {
+    path: 'payment-success',
+    component: PaymentSuccessComponent,
+  },
+  {
+    path: 'payment-cancel',
+    component: PaymentCancelComponent,
   },
 ];

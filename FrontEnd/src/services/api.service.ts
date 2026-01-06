@@ -10,12 +10,14 @@ export class ApiService {
   SERVER = environment.serverUrl;
 
   constructor() {}
+  private axiosConfig = { withCredentials: true };
 
   async registration(table: string, data: any) {
     try {
       const response = await axios.post(
         `${this.SERVER}/${table}/registration`,
-        data
+        data,
+        this.axiosConfig
       );
       return {
         status: 200,
@@ -32,7 +34,11 @@ export class ApiService {
 
   async login(table: string, data: any) {
     try {
-      const response = await axios.post(`${this.SERVER}/${table}/login`, data);
+      const response = await axios.post(
+        `${this.SERVER}/${table}/login`,
+        data,
+        this.axiosConfig
+      );
       return {
         status: 200,
         message: 'Sikeres belépés!',
@@ -48,7 +54,11 @@ export class ApiService {
 
   async sendAIMessage(message: string): Promise<ApiResponse> {
     try {
-      const response = await axios.post(`${this.SERVER}/aichat`, { message });
+      const response = await axios.post(
+        `${this.SERVER}/aichat`,
+        { message },
+        this.axiosConfig
+      );
       return {
         status: 200,
         data: response.data,
@@ -63,7 +73,11 @@ export class ApiService {
 
   async upload(formData: FormData): Promise<ApiResponse> {
     try {
-      const response = await axios.post(`${this.SERVER}/upload`, formData);
+      const response = await axios.post(
+        `${this.SERVER}/upload`,
+        formData,
+        this.axiosConfig
+      );
       return {
         status: 200,
         data: response.data,
@@ -78,7 +92,10 @@ export class ApiService {
 
   async deleteImage(filename: string): Promise<ApiResponse> {
     try {
-      const response = await axios.delete(`${this.SERVER}/image/${filename}`);
+      const response = await axios.delete(
+        `${this.SERVER}/image/${filename}`,
+        this.axiosConfig
+      );
       return {
         status: 200,
         data: response.data,
@@ -93,7 +110,11 @@ export class ApiService {
 
   async sendmail(data: object): Promise<ApiResponse> {
     try {
-      const response = await axios.post(`${this.SERVER}/sendmail`, data);
+      const response = await axios.post(
+        `${this.SERVER}/sendmail`,
+        data,
+        this.axiosConfig
+      );
       return {
         status: 200,
         message: response.data.message,
@@ -110,7 +131,10 @@ export class ApiService {
 
   async selectAll(table: string): Promise<ApiResponse> {
     try {
-      const response = await axios.get(`${this.SERVER}/${table}`);
+      const response = await axios.get(
+        `${this.SERVER}/${table}`,
+        this.axiosConfig
+      );
       return {
         status: 200,
         data: response.data,
@@ -127,7 +151,10 @@ export class ApiService {
 
   async select(table: string, id: number): Promise<ApiResponse> {
     try {
-      const response = await axios.get(`${this.SERVER}/${table}/${id}`);
+      const response = await axios.get(
+        `${this.SERVER}/${table}/${id}`,
+        this.axiosConfig
+      );
       return {
         status: 200,
         data: response.data,
@@ -143,7 +170,8 @@ export class ApiService {
   async selectAccomodationImages(accomodationId: number): Promise<ApiResponse> {
     try {
       const response = await axios.get(
-        `${this.SERVER}/accomodations/${accomodationId}/images`
+        `${this.SERVER}/accomodations/${accomodationId}/images`,
+        this.axiosConfig
       );
       return {
         status: 200,
@@ -157,10 +185,13 @@ export class ApiService {
     }
   }
 
-  async selectAccomodationFeatures(accomodationId: number): Promise<ApiResponse> {
+  async selectAccomodationFeatures(
+    accomodationId: number
+  ): Promise<ApiResponse> {
     try {
       const response = await axios.get(
-        `${this.SERVER}/accomodations/${accomodationId}/features`
+        `${this.SERVER}/accomodations/${accomodationId}/features`,
+        this.axiosConfig
       );
       return {
         status: 200,
@@ -173,7 +204,6 @@ export class ApiService {
       };
     }
   }
-
 
   // VÉLEMÉNYEK
   async selectAccomodationReviews(
@@ -205,7 +235,6 @@ export class ApiService {
 
   // VÉLEMÉNYEK VÉGE
 
-
   async selectAccomodationAvailability(
     accommodationId: number,
     startDate?: string,
@@ -220,7 +249,7 @@ export class ApiService {
 
       if (params.toString()) url += `?${params.toString()}`;
 
-      const response = await axios.get(url);
+      const response = await axios.get(url, this.axiosConfig);
       return {
         status: 200,
         data: response.data,
@@ -238,7 +267,8 @@ export class ApiService {
   ): Promise<ApiResponse> {
     try {
       const response = await axios.get(
-        `${this.SERVER}/bookings/accommodation/${accommodationId}`
+        `${this.SERVER}/bookings/accommodation/${accommodationId}`,
+        this.axiosConfig
       );
       return {
         status: 200,
@@ -254,7 +284,11 @@ export class ApiService {
 
   async createBooking(bookingData: any): Promise<ApiResponse> {
     try {
-      const response = await axios.post(`${this.SERVER}/bookings`, bookingData);
+      const response = await axios.post(
+        `${this.SERVER}/bookings`,
+        bookingData,
+        this.axiosConfig
+      );
       return {
         status: 201,
         data: response.data,
@@ -268,11 +302,26 @@ export class ApiService {
     }
   }
 
+  // Generic POST helper for custom endpoints (e.g. /payments/create-checkout-session)
+  async post(path: string, data: any): Promise<ApiResponse> {
+    try {
+      const url = path.startsWith('http') ? path : `${this.SERVER}${path}`;
+      const response = await axios.post(url, data, this.axiosConfig);
+      return { status: 200, data: response.data };
+    } catch (error: any) {
+      return { status: 500, message: 'Hiba történt a POST kérelem során' };
+    }
+  }
+
   // POST new record to 'table'  -> POST http://localhost:3000/users
 
   async insert(table: string, data: any) {
     try {
-      const response = await axios.post(`${this.SERVER}/${table}`, data);
+      const response = await axios.post(
+        `${this.SERVER}/${table}`,
+        data,
+        this.axiosConfig
+      );
       return {
         status: 200,
         message: 'A rekord felvéve!',
@@ -290,7 +339,11 @@ export class ApiService {
 
   async update(table: string, id: number, data: any) {
     try {
-      const response = await axios.patch(`${this.SERVER}/${table}/${id}`, data);
+      const response = await axios.patch(
+        `${this.SERVER}/${table}/${id}`,
+        data,
+        this.axiosConfig
+      );
       return {
         status: 200,
         message: 'A rekord módosítva!',
@@ -308,7 +361,10 @@ export class ApiService {
 
   async delete(table: string, id: number) {
     try {
-      const response = await axios.delete(`${this.SERVER}/${table}/${id}`);
+      const response = await axios.delete(
+        `${this.SERVER}/${table}/${id}`,
+        this.axiosConfig
+      );
       return {
         status: 200,
         message: 'A rekord törölve a táblából!',
@@ -325,7 +381,10 @@ export class ApiService {
 
   async deleteAll(table: string) {
     try {
-      const response = await axios.delete(`${this.SERVER}/${table}`);
+      const response = await axios.delete(
+        `${this.SERVER}/${table}`,
+        this.axiosConfig
+      );
       return {
         status: 200,
         message: 'Összes rekord törölve a táblából!',

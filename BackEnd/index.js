@@ -14,6 +14,14 @@ app.use(
   })
 );
 
+// We need raw body for Stripe webhook; mount the webhook route before express.json
+const { handleStripeWebhook } = require("./modules/payments");
+app.post(
+  "/payments/webhook",
+  express.raw({ type: "application/json" }),
+  handleStripeWebhook
+);
+
 // middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -21,15 +29,28 @@ app.use("/assets", express.static("assets"));
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+    },
   })
 );
 
 // routes
 const adminAuth = require("./middlewares/adminAuth");
 
-// Protected admin routes (require admin role)
 const users = require("./modules/users");
-app.use("/users", adminAuth, users);
+
+// Public auth/session endpoints
+app.post("/users/login", users);
+app.post("/users/registration", users);
+app.get("/users/me", users);
+
+// Protected admin user management endpoints
+app.use("/users", users);
 
 // Public routes
 const accomodations = require("./modules/accomodations");
@@ -37,6 +58,11 @@ app.use("/accomodations", accomodations);
 
 const bookingsRouter = require("./modules/bookings");
 app.use("/bookings", bookingsRouter);
+
+// Payments (Stripe)
+// We need raw body parsing for the webhook route; mount payments router which uses express.raw internally
+const paymentsRouter = require("./modules/payments");
+app.use("/payments", paymentsRouter);
 
 const aichatRouter = require("./modules/aichat");
 app.use("/aichat", aichatRouter);

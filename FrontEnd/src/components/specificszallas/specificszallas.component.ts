@@ -16,6 +16,7 @@ import { SpecialFeature } from '../../interfaces/specialfeature';
 import { SafePipe } from '../../pipes/SafePipe';
 
 import { UserReview, ReviewStats } from '../../interfaces/review';
+import { SessionService } from '../../services/session.service';
 
 @Component({
   selector: 'app-specificszallas',
@@ -78,6 +79,8 @@ export class SpecificszallasComponent implements OnInit {
   tempCheckInDate: Date | null = null;
   tempCheckOutDate: Date | null = null;
 
+  bookingName: string = '';
+
   // Leiras - összecsukva v. nem
 
   isDescriptionExpanded: boolean = false;
@@ -135,7 +138,8 @@ export class SpecificszallasComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private apiservice: ApiService
+    private apiservice: ApiService,
+    private sessionService: SessionService
   ) {}
 
   async ngOnInit() {
@@ -462,6 +466,7 @@ export class SpecificszallasComponent implements OnInit {
   }
 
   resetSelection() {
+    this.bookingName = '';
     this.tempCheckInDate = null;
     this.tempCheckOutDate = null;
     this.checkInDate = 'Kérlek válassz dátumot!';
@@ -546,10 +551,13 @@ export class SpecificszallasComponent implements OnInit {
   }
 
   async makeReservation() {
-    if (!this.szallasData) {
-      alert('Hiba történt a szállás adatok betöltése során!');
+    if (!this.sessionService.isLoggedIn()) {
+      alert('Kérlek jelentkezz be a foglaláshoz!');
+      this.router.navigate(['']); // or open login modal
       return;
     }
+
+    const szallasAdatok = this.szallasData;
 
     if (
       this.checkInDate === 'Kérlek válassz dátumot!' ||
@@ -559,31 +567,63 @@ export class SpecificszallasComponent implements OnInit {
       return;
     }
 
-    const userId = 1;
+    if (!this.bookingName || this.bookingName.trim() === '') {
+      alert('Kérlek add meg a foglaló nevét!');
+      return;
+    }
 
-    const bookingData = {
+    const userId = this.sessionService.getUser()?.id;
+
+    if (!userId) {
+      alert('Hiba: Nem található bejelentkezett felhasználó!');
+      return;
+    }
+
+    const paymentPayload = {
       userId: userId,
       accommodationId: parseInt(this.urlId, 10),
       startDate: this.checkInDate,
       endDate: this.checkOutDate,
       persons: this.guests,
       totalPrice: this.totalPrice,
-      status: 'confirmed',
+      bookingName: this.bookingName,
     };
 
     try {
-      const response = await this.apiservice.createBooking(bookingData);
-
-      if (response.status === 201) {
-        alert('Foglalás sikeresen létrehozva!');
-        await this.loadAvailability();
-        this.resetSelection();
+      const resp = await this.apiservice.post(
+        '/payments/create-checkout-session',
+        paymentPayload
+      );
+      if (
+        resp &&
+        resp.data &&
+        resp.data.sessionId &&
+        resp.data.publishableKey
+      ) {
+        // load stripe and redirect
+        const publishableKey = resp.data.publishableKey;
+        const sessionId = resp.data.sessionId;
+        const stripeJs = (window as any).Stripe || null;
+        if (!stripeJs) {
+          // dynamically load Stripe.js
+          const script = document.createElement('script');
+          script.src = 'https://js.stripe.com/v3/';
+          document.head.appendChild(script);
+          await new Promise((resolve) => (script.onload = resolve));
+        }
+        const stripe = (window as any).Stripe(publishableKey);
+        const { error } = await stripe.redirectToCheckout({ sessionId });
+        if (error) {
+          console.error('Stripe redirect error:', error);
+          alert('Hiba történt a fizetés indításakor.');
+        }
       } else {
-        alert('Hiba történt a foglalás során: ' + response.message);
+        console.error('Invalid create-checkout-session response:', resp);
+        alert('Hiba történt a fizetés előkészítésekor.');
       }
-    } catch (error) {
-      console.error('Booking error:', error);
-      alert('Hiba történt a foglalás során!');
+    } catch (err) {
+      console.error('Payment initiation error:', err);
+      alert('Hiba történt a fizetés során.');
     }
   }
 
