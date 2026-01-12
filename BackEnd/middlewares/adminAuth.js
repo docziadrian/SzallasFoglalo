@@ -1,4 +1,11 @@
-// No admin required, allow all requests to proceed
 module.exports = function (req, res, next) {
-  return next();
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ error: 'Nincs bejelentkezve' });
+  }
+  
+  if (req.session.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Nincs admin jogosultsága' });
+  }
+  
+  next();
 };

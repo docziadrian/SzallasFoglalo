@@ -28,8 +28,7 @@ import { ApiService } from '../../services/api.service';
         </svg>
         <h2 class="text-2xl font-bold text-gray-800 mb-2">Sikeres fizetés!</h2>
         <p class="text-gray-600 mb-6">
-          Köszönjük a foglalást! Az automatikus visszaigazolást hamarosan
-          elküldjük.
+          Köszönjük a foglalást!
         </p>
         <button
           (click)="goHome()"
@@ -38,11 +37,60 @@ import { ApiService } from '../../services/api.service';
           Vissza a főoldalra
         </button>
       </div>
+
+      <div
+        *ngIf="showModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        (click)="closeModal()"
+      >
+        <div
+          class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6"
+          (click)="$event.stopPropagation()"
+        >
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Foglalás visszaigazolás</h3>
+          <p class="text-sm text-gray-700 mb-4">
+            Technikai okokból most nem tudunk e-mailt küldeni. Az alábbi adatok szolgálnak visszaigazolásként.
+          </p>
+
+          <div class="space-y-2 text-sm text-gray-800" *ngIf="booking">
+            <div><span class="font-semibold">Név:</span> {{ booking.bookingName || '-' }}</div>
+            <div><span class="font-semibold">Szállás:</span> {{ booking.accommodationName || booking.accommodationId || '-' }}</div>
+            <div><span class="font-semibold">Érkezés:</span> {{ booking.startDate || '-' }}</div>
+            <div><span class="font-semibold">Távozás:</span> {{ booking.endDate || '-' }}</div>
+            <div><span class="font-semibold">Vendégek:</span> {{ booking.persons || '-' }}</div>
+            <div><span class="font-semibold">Végösszeg:</span> {{ booking.totalPrice || '-' }}</div>
+          </div>
+
+          <div class="space-y-2 text-sm text-gray-800" *ngIf="!booking">
+            <div>Nem sikerült lekérni a foglalási adatokat.</div>
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="downloadTxt()"
+              class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              Letöltés .txt
+            </button>
+            <button
+              type="button"
+              (click)="closeModal()"
+              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+            >
+              Bezárás
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [],
 })
 export class PaymentSuccessComponent implements OnInit {
+  showModal = false;
+  booking: any = null;
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -50,21 +98,18 @@ export class PaymentSuccessComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Session id helps in tracking but for now we manually call booking creation if session_id is present
     this.route.queryParams.subscribe(async (params) => {
       const sessionId = params['session_id'];
       if (sessionId) {
-        // Option A: Call backend to retrieve session and insert booking if not exists
-        // This requires a new endpoint in backend to fetch session details and insert booking manually if webhook failed.
-        // Option B (Simple & Insecure): If we passed booking data in url (not safe).
-
-        // Better approach:
-        // Let's call a backend endpoint verify-payment which takes session_id, checks stripe, and inserts booking if paid.
         try {
-          await this.api.post('/payments/verify-booking', { sessionId });
-          // If already inserted by webhook, backend should handle duplication or ignore
+          const resp = await this.api.post('/payments/verify-booking', { sessionId });
+          const b = resp?.data?.booking ?? null;
+          this.booking = b;
+          this.showModal = true;
         } catch (e) {
           console.error(e);
+          this.booking = null;
+          this.showModal = true;
         }
       }
     });
@@ -72,5 +117,45 @@ export class PaymentSuccessComponent implements OnInit {
 
   goHome() {
     this.router.navigate(['/']);
+  }
+
+  closeModal() {
+    this.showModal = false;
+  }
+
+  downloadTxt() {
+    const content = this.formatTxt();
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'foglalas-visszaigazolas.txt';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  }
+
+  private formatTxt(): string {
+    const b = this.booking || {};
+    const lines = [
+      'Foglalás visszaigazolás',
+      '',
+      'Technikai okokból most nem tudunk e-mailt küldeni.',
+      'Az alábbi adatok szolgálnak visszaigazolásként.',
+      '',
+      `Név: ${b.bookingName || '-'}`,
+      `Szállás: ${b.accommodationName || b.accommodationId || '-'}`,
+      `Érkezés: ${b.startDate || '-'}`,
+      `Távozás: ${b.endDate || '-'}`,
+      `Vendégek: ${b.persons || '-'}`,
+      `Végösszeg: ${b.totalPrice || '-'}`,
+      '',
+      `Dátum: ${new Date().toISOString()}`,
+    ];
+
+    return lines.join('\n');
   }
 }

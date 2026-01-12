@@ -222,18 +222,24 @@
   <div *ngIf="showMobileMenu" class="lg:hidden border-t border-gray-300">
     <div class="px-4 py-3 space-y-3">
       <a
-        href="/legjobb-szallas"
+        href="/accomodations/"
         class="block text-gray-700 hover:text-[#E62727] font-medium"
-        >LEGJOBB SZÁLLÁSOK</a
-      >
-      <a href="/nepszeru" class="block text-gray-700 hover:text-[#E62727]"
-        >Népszerű úti célok</a
+        >Összes szállás</a
       >
       <a
-        href="/ugyfelszolgalat"
+        href="/best"
         class="block text-gray-700 hover:text-[#E62727]"
-        >Ügyfélszolgálat</a
+        >Legjobb szállások</a
       >
+      <a href="/popular" class="block text-gray-700 hover:text-[#E62727]"
+        >Népszerű úti célok</a
+      >
+      <button
+        (click)="openChat()"
+        class="block text-left w-full text-gray-700 hover:text-[#E62727]"
+      >
+        Ügyfélszolgálat
+      </button>
 
       <div *ngIf="!isLoggedIn">
         <button

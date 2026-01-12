@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Accomodation } from '../../interfaces/accomodations';
 import { AccomodationImage } from '../../interfaces/accomodation_images';
 import { ApiService } from '../../services/api.service';
+import { CouponService } from '../../services/coupon.service';
 import { FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions, DateSelectArg, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -80,6 +81,9 @@ export class SpecificszallasComponent implements OnInit {
   tempCheckOutDate: Date | null = null;
 
   bookingName: string = '';
+  couponCode: string = '';
+  couponDiscount: number = 0;
+  finalPrice: number = 0;
 
   // Leiras - összecsukva v. nem
 
@@ -139,7 +143,8 @@ export class SpecificszallasComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private apiservice: ApiService,
-    private sessionService: SessionService
+    private sessionService: SessionService,
+    private couponService: CouponService
   ) {}
 
   async ngOnInit() {
@@ -274,7 +279,7 @@ export class SpecificszallasComponent implements OnInit {
         this.router.navigate(['/']);
       }
     } catch (error) {
-      console.error('Error loading accommodation:', error);
+      console.error('Hiba:', error);
       this.router.navigate(['/']);
     }
   }
@@ -288,7 +293,7 @@ export class SpecificszallasComponent implements OnInit {
         this.features = response.data;
       }
     } catch (error) {
-      console.error('Error loading features:', error);
+      console.error('Hiba:', error);
     }
   }
 
@@ -301,7 +306,7 @@ export class SpecificszallasComponent implements OnInit {
         this.images = response.data;
       }
     } catch (error) {
-      console.error('Error loading images:', error);
+      console.error('Hiba:', error);
     }
   }
 
@@ -328,7 +333,7 @@ export class SpecificszallasComponent implements OnInit {
         this.updateCalendarEvents();
       }
     } catch (error) {
-      console.error('Error loading availability:', error);
+      console.error('Hiba:', error);
     }
   }
 
@@ -519,12 +524,53 @@ export class SpecificszallasComponent implements OnInit {
       this.nights = diffDays;
       this.totalPrice =
         this.nights * this.szallasData.priceforone * this.guests;
+      this.finalPrice = this.totalPrice - this.couponDiscount;
     }
   }
 
   onGuestsChange() {
-    if (this.guests < 1) this.guests = 1;
+    const numericGuests = Number(this.guests);
+    if (Number.isNaN(numericGuests) || numericGuests < 1) {
+      this.guests = 1;
+    } else {
+      this.guests = Math.floor(numericGuests);
+    }
+
     this.calculatePrice();
+    if (this.couponDiscount > 0) {
+      this.applyCoupon();
+    }
+  }
+
+  onGuestChhange() {
+    this.onGuestsChange();
+  }
+
+  onGuestChange() {
+    this.onGuestsChange();
+  }
+
+  async applyCoupon() {
+    if (!this.couponCode.trim()) {
+      this.couponDiscount = 0;
+      this.calculatePrice();
+      return;
+    }
+
+    try {
+      const result = await this.couponService.validateCoupon(this.couponCode, this.totalPrice);
+      if (result.valid) {
+        this.couponDiscount = result.discountAmount;
+        alert(`Kupon alkalmazva: ${result.description} - ${result.discountAmount} Ft kedvezmény`);
+      } else {
+        this.couponDiscount = 0;
+        alert('Érvénytelen kuponkód');
+      }
+      this.calculatePrice();
+    } catch (error) {
+      console.error('Hiba a kupon ellenőrzésekor:', error);
+      alert('Hiba történt a kupon ellenőrzésekor');
+    }
   }
 
   openGallery(index: number) {
@@ -553,7 +599,7 @@ export class SpecificszallasComponent implements OnInit {
   async makeReservation() {
     if (!this.sessionService.isLoggedIn()) {
       alert('Kérlek jelentkezz be a foglaláshoz!');
-      this.router.navigate(['']); // or open login modal
+      this.router.navigate(['']);
       return;
     }
 
@@ -585,7 +631,7 @@ export class SpecificszallasComponent implements OnInit {
       startDate: this.checkInDate,
       endDate: this.checkOutDate,
       persons: this.guests,
-      totalPrice: this.totalPrice,
+      totalPrice: this.finalPrice,
       bookingName: this.bookingName,
     };
 
@@ -600,12 +646,12 @@ export class SpecificszallasComponent implements OnInit {
         resp.data.sessionId &&
         resp.data.publishableKey
       ) {
-        // load stripe and redirect
+        // STRIPE
         const publishableKey = resp.data.publishableKey;
         const sessionId = resp.data.sessionId;
         const stripeJs = (window as any).Stripe || null;
         if (!stripeJs) {
-          // dynamically load Stripe.js
+          // strip.js
           const script = document.createElement('script');
           script.src = 'https://js.stripe.com/v3/';
           document.head.appendChild(script);
@@ -614,15 +660,15 @@ export class SpecificszallasComponent implements OnInit {
         const stripe = (window as any).Stripe(publishableKey);
         const { error } = await stripe.redirectToCheckout({ sessionId });
         if (error) {
-          console.error('Stripe redirect error:', error);
+          console.error('Stripe hiba:', error);
           alert('Hiba történt a fizetés indításakor.');
         }
       } else {
-        console.error('Invalid create-checkout-session response:', resp);
+        console.error('Érvénytelen create-checkout-session válasz:', resp);
         alert('Hiba történt a fizetés előkészítésekor.');
       }
     } catch (err) {
-      console.error('Payment initiation error:', err);
+      console.error('Fizetés indítási hiba:', err);
       alert('Hiba történt a fizetés során.');
     }
   }

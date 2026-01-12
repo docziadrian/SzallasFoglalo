@@ -32,7 +32,7 @@ export class PopularAccomodationsComponent implements OnInit {
     const response = await this.apiService.selectAll('accomodations');
     if (response.status === 200 && response.data) {
       const all: Accomodation[] = response.data;
-      // Randomly select 9 accommodations
+      // random 9 szallas
       this.popularAccomodations = all
         .sort(() => 0.5 - Math.random())
         .slice(0, 9);

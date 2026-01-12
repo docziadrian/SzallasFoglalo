@@ -24,7 +24,6 @@ export class BestAccomodationsComponent implements OnInit {
     const response = await this.apiService.selectAll('accomodations');
     if (response.status === 200 && response.data) {
       const all: Accomodation[] = response.data;
-      // Sort by average rating descending and take top 9
       this.bestAccomodations = all
         .sort((a, b) => b.avgrating - a.avgrating)
         .slice(0, 9);

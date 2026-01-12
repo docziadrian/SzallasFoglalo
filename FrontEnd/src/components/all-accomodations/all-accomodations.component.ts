@@ -18,10 +18,10 @@ export class AllAccomodationsComponent implements OnInit {
   searchTerm: string = '';
   sortBy: string = 'rating';
 
-  minPrice: number = 1000;
-  maxPrice: number = 130000;
-  currentMinPrice: number = 1000;
-  currentMaxPrice: number = 130000;
+  minPrice: number = 0;
+  maxPrice: number = 0;
+  currentMinPrice: number = 0;
+  currentMaxPrice: number = 0;
 
   selectedRating: string = 'all';
 
@@ -68,7 +68,6 @@ export class AllAccomodationsComponent implements OnInit {
         return decodeURIComponent(segments[destIndex + 1]).trim();
       }
     } catch {
-      // ignore URL parse errors
     }
     return null;
   }
@@ -78,9 +77,25 @@ export class AllAccomodationsComponent implements OnInit {
     if (response.status === 200 && response.data) {
       this.allAccomodations = response.data;
 
+      const prices = this.allAccomodations
+        .map((a) => Number(a.priceforone))
+        .filter((n) => Number.isFinite(n));
+      if (prices.length > 0) {
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        this.minPrice = Math.max(0, min);
+        this.maxPrice = Math.max(this.minPrice, max);
+        this.currentMinPrice = this.minPrice;
+        this.currentMaxPrice = this.maxPrice;
+      } else {
+        this.minPrice = 0;
+        this.maxPrice = 0;
+        this.currentMinPrice = 0;
+        this.currentMaxPrice = 0;
+      }
+
       const destination = this.getDestinationFromUrl();
       if (destination) {
-        // set the searchTerm to the destination so filters will search by that location
         this.searchTerm = destination.toLowerCase();
       }
 

@@ -1,0 +1,53 @@
+{
+  "COMMON": {
+    "LOGIN": "Login",
+    "REGISTER": "Register",
+    "LOGOUT": "Logout",
+    "HOME": "Home",
+    "SEARCH": "Search",
+    "BOOKING": "Booking",
+    "PRICE": "Price",
+    "NIGHTS": "Nights",
+    "GUESTS": "Guests",
+    "CHECK_IN": "Check-in",
+    "CHECK_OUT": "Check-out",
+    "TOTAL_PRICE": "Total Price",
+    "DISCOUNT": "Discount",
+    "COUPON_CODE": "Coupon Code",
+    "APPLY_COUPON": "Apply Coupon",
+    "RESERVATIONS": "My Reservations",
+    "ADMIN_PANEL": "Admin Panel",
+    "USERS": "Users",
+    "ACCOMMODATIONS": "Accommodations",
+    "BOOKINGS": "Bookings",
+    "REVIEWS": "Reviews",
+    "CANCEL": "Cancel",
+    "SAVE": "Save",
+    "EDIT": "Edit",
+    "DELETE": "Delete",
+    "BAN_USER": "Ban User",
+    "UNBAN_USER": "Unban User",
+    "ACTIVE": "Active",
+    "INACTIVE": "Inactive"
+  },
+  "MESSAGES": {
+    "LOGIN_REQUIRED": "Please login to continue!",
+    "INVALID_COUPON": "Invalid coupon code",
+    "COUPON_APPLIED": "Coupon applied successfully",
+    "BOOKING_SUCCESS": "Booking created successfully",
+    "BOOKING_CANCELLED": "Booking cancelled",
+    "USER_BANNED": "User banned",
+    "USER_UNBANNED": "User unbanned",
+    "SAVED": "Saved successfully",
+    "ERROR_OCCURRED": "An error occurred",
+    "CONFIRM_DELETE": "Are you sure you want to delete this item?",
+    "NO_RESERVATIONS": "You don't have any reservations yet.",
+    "LOADING": "Loading..."
+  },
+  "VALIDATION": {
+    "REQUIRED_FIELD": "This field is required",
+    "INVALID_EMAIL": "Invalid email address",
+    "PASSWORD_MISMATCH": "Passwords do not match",
+    "MIN_PASSWORD_LENGTH": "Password must be at least 8 characters long"
+  }
+}

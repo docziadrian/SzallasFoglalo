@@ -12,6 +12,11 @@ export class ApiService {
   constructor() {}
   private axiosConfig = { withCredentials: true };
 
+  private normalizePath(path: string): string {
+    if (path.startsWith('http') || path.startsWith('/')) return path;
+    return `/${path}`;
+  }
+
   async registration(table: string, data: any) {
     try {
       const response = await axios.post(
@@ -302,10 +307,11 @@ export class ApiService {
     }
   }
 
-  // Generic POST helper for custom endpoints (e.g. /payments/create-checkout-session)
+
   async post(path: string, data: any): Promise<ApiResponse> {
     try {
-      const url = path.startsWith('http') ? path : `${this.SERVER}${path}`;
+      const normalizedPath = this.normalizePath(path);
+      const url = path.startsWith('http') ? path : `${this.SERVER}${normalizedPath}`;
       const response = await axios.post(url, data, this.axiosConfig);
       return { status: 200, data: response.data };
     } catch (error: any) {
@@ -313,7 +319,7 @@ export class ApiService {
     }
   }
 
-  // POST new record to 'table'  -> POST http://localhost:3000/users
+
 
   async insert(table: string, data: any) {
     try {
@@ -335,7 +341,6 @@ export class ApiService {
     }
   }
 
-  // UPDATE record from 'table' by 'id'  -> PATCH http://localhost:3000/users/5
 
   async update(table: string, id: number, data: any) {
     try {
@@ -357,7 +362,6 @@ export class ApiService {
     }
   }
 
-  // DELETE ONE record from 'table' by 'id'  -> DELETE http://localhost:3000/users/5
 
   async delete(table: string, id: number) {
     try {
@@ -377,7 +381,28 @@ export class ApiService {
     }
   }
 
-  // DELETE ALL!!! record from 'table'  -> DELETE http://localhost:3000/users
+
+  async patch(path: string, data: any) {
+    try {
+      const normalizedPath = this.normalizePath(path);
+      const url = path.startsWith('http') ? path : `${this.SERVER}${normalizedPath}`;
+      const response = await axios.patch(url, data, this.axiosConfig);
+      return { status: 200, data: response.data };
+    } catch (error: any) {
+      return { status: 500, message: 'Hiba történt a PATCH kérelem során' };
+    }
+  }
+
+  async deletePath(path: string) {
+    try {
+      const normalizedPath = this.normalizePath(path);
+      const url = path.startsWith('http') ? path : `${this.SERVER}${normalizedPath}`;
+      const response = await axios.delete(url, this.axiosConfig);
+      return { status: 200, data: response.data };
+    } catch (error: any) {
+      return { status: 500, message: 'Hiba történt a DELETE kérelem során' };
+    }
+  }
 
   async deleteAll(table: string) {
     try {

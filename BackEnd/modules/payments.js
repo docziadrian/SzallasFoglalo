@@ -5,7 +5,14 @@ const db = require("./db");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Create a Stripe Checkout session for a booking
+function getFrontendBaseUrl() {
+  const raw = (process.env.FRONTEND_URL || "").trim();
+  if (!raw) return "http://localhost:4200";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  return `http://${raw}`;
+}
+
+// Stripe Checkout session létrehozása egy foglaláshoz
 router.post("/create-checkout-session", async (req, res) => {
   try {
     const {
@@ -18,22 +25,22 @@ router.post("/create-checkout-session", async (req, res) => {
       bookingName,
     } = req.body;
 
-    // fetch accommodation to include name
+    // szállás lekérése a névhez
     db.query(
       "SELECT id, name FROM accomodations WHERE id = ?",
       [accommodationId],
       async (err, rows) => {
         if (err) {
-          console.error("Error fetching accomodation for payment:", err);
+          console.error("Hiba a szállás lekérésekor fizetéshez:", err);
           return res
             .status(500)
-            .json({ message: "Error fetching accomodation" });
+            .json({ message: "Hiba a szállás lekérésekor" });
         }
 
         const accName =
           rows && rows.length
             ? rows[0].name
-            : `Accomodation #${accommodationId}`;
+            : `Szállás #${accommodationId}`;
 
         const session = await stripe.checkout.sessions.create({
           payment_method_types: ["card"],
@@ -59,8 +66,8 @@ router.post("/create-checkout-session", async (req, res) => {
               bookingName,
             }),
           },
-          success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${process.env.FRONTEND_URL}/payment-cancel`,
+          success_url: `${getFrontendBaseUrl()}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${getFrontendBaseUrl()}/payment-cancel`,
         });
 
         return res.json({
@@ -70,14 +77,14 @@ router.post("/create-checkout-session", async (req, res) => {
       }
     );
   } catch (error) {
-    console.error("Error creating checkout session:", error);
-    res.status(500).json({ message: "Failed to create checkout session" });
+    console.error("Hiba a checkout session létrehozásakor:", error);
+    res.status(500).json({ message: "Nem sikerült létrehozni a checkout sessiont" });
   }
 });
 
-// Webhook endpoint to receive events from Stripe
-// Note: stripe recommends the raw body for signature verification; this file expects the app to mount it using express.raw
-// Note: stripe recommends the raw body for signature verification; we'll export a handler so index.js can mount it with express.raw
+// Webhook endpoint a Stripe események fogadásához
+// Megjegyzés: a stripe javasolja a nyers body-t az aláírás ellenőrzéséhez; ez a fájl azt várja, hogy az app express.raw-val mountolja
+// Megjegyzés: a stripe javasolja a nyers body-t az aláírás ellenőrzéséhez; exportálunk egy handlert, hogy az index.js express.raw-val mountolhassa
 function handleStripeWebhook(req, res) {
   const sig = req.headers["stripe-signature"];
   let event;
@@ -88,33 +95,33 @@ function handleStripeWebhook(req, res) {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error("Webhook signature verification failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error("Webhook aláírás ellenőrzése sikertelen:", err.message);
+    return res.status(400).send(`Webhook Hiba: ${err.message}`);
   }
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    // use the shared helper
+    // használjuk a megosztott helper funkciót
     insertBookingFromSession(session)
       .then(() => {
-        console.log("Webhook: booking inserted");
+        console.log("Webhook: foglalás beillesztve");
       })
       .catch((err) => {
-        console.error("Webhook: booking insert failed", err);
+        console.error("Webhook: foglalás beillesztése sikertelen", err);
       });
   }
 
   res.json({ received: true });
 }
 
-// keep the router endpoint for convenience (if webhook is mounted via router, it will work only if raw body is preserved)
+// tartsuk meg a router végpontot a kényelem kedvéért (ha a webhook routerral van mountolva, csak akkor működik, ha a nyers body megmarad)
 router.post(
   "/webhook",
   express.raw({ type: "application/json" }),
   handleStripeWebhook
 );
 
-// Helper function to insert booking from session
+// Helper funkció a foglalás beillesztéséhez a sessionből
 async function insertBookingFromSession(session) {
   if (
     session.payment_status === "paid" &&
@@ -123,11 +130,6 @@ async function insertBookingFromSession(session) {
   ) {
     try {
       const booking = JSON.parse(session.metadata.booking);
-      // Check if booking already exists (optional, based on transaction id or similar if stored,
-      // but for now we trust the insert or let db handle constraints if any)
-
-      // Note: In a real app we might store stripe session id in booking to avoid duplicates.
-      // For now, let's just insert.
 
       const sql = `INSERT INTO bookings (userId, accommodationId, startDate, endDate, persons, totalPrice, status, createdAt, bookingName) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)`;
       const params = [
@@ -154,36 +156,59 @@ async function insertBookingFromSession(session) {
   return null;
 }
 
-// Manually verify and insert booking if webhook failed
+// Manuális ellenőrzés és foglalás beillesztése, ha a webhook sikertelen
 router.post("/verify-booking", async (req, res) => {
   const { sessionId } = req.body;
-  if (!sessionId) return res.status(400).json({ message: "Missing sessionId" });
+  if (!sessionId)    return res.status(400).json({ message: "Hiányzó sessionId" });
 
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status === "paid") {
-      // Insert booking
+      let bookingDetails = null;
+      try {
+        if (session.metadata && session.metadata.booking) {
+          bookingDetails = JSON.parse(session.metadata.booking);
+
+          const accId = bookingDetails.accommodationId;
+          if (accId) {
+            const accName = await new Promise((resolve) => {
+              db.query(
+                "SELECT name FROM accomodations WHERE id = ?",
+                [accId],
+                (e, rows) => {
+                  if (e || !rows || !rows.length) return resolve(null);
+                  resolve(rows[0].name);
+                }
+              );
+            });
+            if (accName) bookingDetails.accommodationName = accName;
+          }
+        }
+      } catch (e) {
+        bookingDetails = null;
+      }
+
       try {
         await insertBookingFromSession(session);
         return res.json({
           success: true,
-          message: "Booking verified/inserted",
+          message: "Foglalás ellenőrizve/beillesztve",
+          booking: bookingDetails,
         });
       } catch (dbErr) {
-        console.error("Booking insert error", dbErr);
-        // Maybe it was already inserted?
-        // For now just return success to frontend so user sees success page
+        console.error("Foglalás beillesztési hiba", dbErr);
         return res.json({
           success: true,
-          message: "Booking processed (or error in db)",
+          message: "Foglalás feldolgozva (vagy hiba a DB-ben)",
+          booking: bookingDetails,
         });
       }
     } else {
-      return res.status(400).json({ message: "Payment not successful" });
+      return res.status(400).json({ message: "A fizetés nem sikeres" });
     }
   } catch (err) {
-    console.error("Verify error", err);
-    return res.status(500).json({ message: "Error verifying payment" });
+    console.error("Ellenőrzési hiba", err);
+    return res.status(500).json({ message: "Hiba a fizetés ellenőrzésekor" });
   }
 });
 

@@ -57,7 +57,7 @@ router.post("/", async (req, res) => {
         headers: {
           Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:4200", // A frontend URL
+          "HTTP-Referer": "http://localhost:4200", // A frontend URL //TODO: ha változik itt kell átirni
           "X-Title": "FoglaljLe Szállásfoglaló",
         },
         body: JSON.stringify({
@@ -80,8 +80,8 @@ router.post("/", async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("OpenRouter API error:", errorData);
-      throw new Error(`OpenRouter API error: ${response.status}`);
+      console.error("OpenRouter API hiba:", errorData);
+      throw new Error(`OpenRouter API hiba: ${response.status}`);
     }
 
     const data = await response.json();
@@ -89,7 +89,7 @@ router.post("/", async (req, res) => {
 
     res.json({ response: aiResponse });
   } catch (error) {
-    console.error("AI chat error:", error);
+    console.error("AI chat hiba:", error);
 
     // Fallback válaszok hiba esetén
     const fallbackResponses = [

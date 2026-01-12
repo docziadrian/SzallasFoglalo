@@ -14,7 +14,7 @@ app.use(
   })
 );
 
-// We need raw body for Stripe webhook; mount the webhook route before express.json
+// Nyers body-ra van szükségünk a Stripe webhookhoz; mountoljuk a webhook útvonalat az express.json előtt
 const { handleStripeWebhook } = require("./modules/payments");
 app.post(
   "/payments/webhook",
@@ -44,23 +44,23 @@ const adminAuth = require("./middlewares/adminAuth");
 
 const users = require("./modules/users");
 
-// Public auth/session endpoints
+// Nyilvános auth/session végpontok
 app.post("/users/login", users);
 app.post("/users/registration", users);
 app.get("/users/me", users);
 
-// Protected admin user management endpoints
+// Védett admin felhasználó kezelési végpontok
 app.use("/users", users);
 
-// Public routes
+// Nyilvános útvonalak
 const accomodations = require("./modules/accomodations");
 app.use("/accomodations", accomodations);
 
 const bookingsRouter = require("./modules/bookings");
 app.use("/bookings", bookingsRouter);
 
-// Payments (Stripe)
-// We need raw body parsing for the webhook route; mount payments router which uses express.raw internally
+// Fizetések (Stripe)
+// Nyers body elemzésre van szükség a webhook útvonalhoz; mountoljuk a payments routert, ami belsőleg express.raw-t használ
 const paymentsRouter = require("./modules/payments");
 app.use("/payments", paymentsRouter);
 
@@ -73,11 +73,14 @@ app.use("/accomodation_images", accomodationImages);
 const reviewsRouter = require("./modules/reviews");
 app.use("/reviews", adminAuth, reviewsRouter);
 
-// rooms endpoint scaffold - store rooms per accomodation in accomodation_images with type='room'
+// rooms endpoint scaffold - szobák tárolása szállásonként az accomodation_images táblában type='room' értékkel
 const roomsRouter = require("./modules/rooms");
 app.use("/rooms", adminAuth, roomsRouter);
 
+const couponsRouter = require("./modules/coupons");
+app.use("/coupons", couponsRouter);
+
 // listening
 app.listen(port, () => {
-  console.log(`Server listening on port ${port}...`);
+  console.log(`Szerver a ${port} porton hallgazdik...`);
 });

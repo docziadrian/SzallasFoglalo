@@ -105,6 +105,8 @@ A nodemailer a következő események bekövetkezésekor fog emailt küldeni a f
 
 
 		
+# Ha stripe nem mukodik
+    - stripe.exe -> stripe.exe listen --forward-to http://localhost:3333/payments/webhook
 
 
 Készítette: Dóczi Adrián Márk

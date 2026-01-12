@@ -1,7 +1,9 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
+import { SessionService } from '../../services/session.service';
 import { User } from '../../interfaces/user';
 import { Accomodation } from '../../interfaces/accomodations';
 import { UserReview } from '../../interfaces/review';
@@ -18,14 +20,18 @@ export class AdminComponent implements OnInit {
   activeTab: 'users' | 'accomodations' | 'reviews' | 'bookings' = 'users';
 
   users: User[] = [];
-  // pagination state (shared simple client-side pagination)
   pageSize = 10;
   currentPageUsers = 1;
   currentPageAccomodations = 1;
   currentPageReviews = 1;
   currentPageBookings = 1;
-  // expose Math to templates (Angular template parser needs properties on the component)
   public Math = Math;
+
+  constructor(
+    private apiService: ApiService,
+    private sessionService: SessionService,
+    private router: Router
+  ) {}
 
   accomodations: Accomodation[] = [];
   newAccomodation: any = {
@@ -42,15 +48,24 @@ export class AdminComponent implements OnInit {
   uploadedImageUrls: string[] = [];
   isUploading: boolean = false;
 
-  reviews: any[] = []; // Using any for now as we might need a joined structure
+  reviews: any[] = []; 
   selectedReview: any = null;
   isReviewModalOpen: boolean = false;
 
-  // Editing state
   editingUser: any = null;
   editingAcc: any = null;
+  editingBooking: any = null;
 
-  // Rooms
+  newBooking: any = {
+    userId: null,
+    accommodationId: null,
+    startDate: '',
+    endDate: '',
+    persons: 1,
+    totalPrice: 0,
+    status: 'confirmed',
+  };
+
   newRoom: any = {
     accomodation_id: null,
     title: '',
@@ -60,10 +75,63 @@ export class AdminComponent implements OnInit {
     image_url: '',
   };
 
-  constructor(private apiService: ApiService) {}
-
   ngOnInit(): void {
+    if (!this.sessionService.isAdmin()) {
+      this.router.navigate(['/']);
+      return;
+    }
     this.loadUsers();
+  }
+
+  async createBooking() {
+    const payload: any = {
+      userId: this.newBooking.userId,
+      accommodationId: this.newBooking.accommodationId,
+      startDate: this.newBooking.startDate,
+      endDate: this.newBooking.endDate,
+      persons: this.newBooking.persons,
+      totalPrice: this.newBooking.totalPrice,
+      status: this.newBooking.status,
+    };
+
+    if (!payload.userId || !payload.accommodationId) {
+      alert('Kérlek válassz felhasználót és szállást!');
+      return;
+    }
+    if (!payload.startDate || !payload.endDate) {
+      alert('Kérlek válassz érkezési és távozási dátumot!');
+      return;
+    }
+    if (!payload.persons || payload.persons < 1) {
+      alert('A személyek száma legalább 1 legyen!');
+      return;
+    }
+
+    const res = await this.apiService.createBooking(payload);
+    if (res.status === 201 || res.status === 200) {
+      alert('Foglalás sikeresen létrehozva!');
+      this.newBooking = {
+        userId: null,
+        accommodationId: null,
+        startDate: '',
+        endDate: '',
+        persons: 1,
+        totalPrice: 0,
+        status: 'confirmed',
+      };
+      this.loadBookings();
+    } else {
+      alert(res.message || 'Nem sikerült a foglalás létrehozása!');
+    }
+  }
+
+  isAccActive(acc: any): boolean {
+    const v = acc?.active ?? acc?.is_active;
+    if (v === true) return true;
+    if (v === false) return false;
+    if (v === 1 || v === '1') return true;
+    if (v === 0 || v === '0') return false;
+    return !!v;
   }
 
   switchTab(tab: 'users' | 'accomodations' | 'reviews' | 'bookings') {
@@ -71,7 +139,11 @@ export class AdminComponent implements OnInit {
     if (tab === 'users') this.loadUsers();
     if (tab === 'accomodations') this.loadAccomodations();
     if (tab === 'reviews') this.loadReviews();
-    if (tab === 'bookings') this.loadBookings();
+    if (tab === 'bookings') {
+      this.loadBookings();
+      this.loadUsers();
+      this.loadAccomodations();
+    }
   }
 
   async loadUsers() {
@@ -79,6 +151,30 @@ export class AdminComponent implements OnInit {
     if (res.status === 200) {
       this.users = res.data;
       this.currentPageUsers = 1;
+    }
+  }
+
+  async banUser(id: number) {
+    if (confirm('Biztosan ki akarod tiltani ezt a felhasználót?')) {
+      const res = await this.apiService.patch(`users/${id}/ban`, {});
+      if (res.status === 200) {
+        alert('Felhasználó kitiltva!');
+        this.loadUsers();
+      } else {
+        alert('Hiba történt a kitiltás során.');
+      }
+    }
+  }
+
+  async unbanUser(id: number) {
+    if (confirm('Biztosan fel akarod oldani ezt a felhasználó kitiltását?')) {
+      const res = await this.apiService.patch(`users/${id}/unban`, {});
+      if (res.status === 200) {
+        alert('Felhasználó feloldva!');
+        this.loadUsers();
+      } else {
+        alert('Hiba történt a feloldás során.');
+      }
     }
   }
 
@@ -137,7 +233,6 @@ export class AdminComponent implements OnInit {
   }
 
   async loadAccomodations() {
-    // load all accomodations for admin (include inactive)
     const res = await this.apiService.selectAll('accomodations?all=true');
     if (res.status === 200) {
       this.accomodations = res.data;
@@ -145,7 +240,6 @@ export class AdminComponent implements OnInit {
     }
   }
 
-  // Bookings
   bookings: any[] = [];
 
   async loadBookings() {
@@ -156,7 +250,70 @@ export class AdminComponent implements OnInit {
     }
   }
 
-  // Pagination helpers
+  startEditBooking(b: any) {
+    const clone = { ...b };
+    const normalizeDate = (v: any) => {
+      if (!v) return v;
+      if (typeof v === 'string') {
+        if (v.includes('T')) return v.split('T')[0];
+        if (v.includes(' ')) return v.split(' ')[0];
+        return v;
+      }
+      try {
+        const d = new Date(v);
+        if (isNaN(d.getTime())) return v;
+        return d.toISOString().split('T')[0];
+      } catch {
+        return v;
+      }
+    };
+
+    clone.startDate = normalizeDate(clone.startDate);
+    clone.endDate = normalizeDate(clone.endDate);
+
+    this.editingBooking = clone;
+  }
+
+  cancelEditBooking() {
+    this.editingBooking = null;
+  }
+
+  async saveBooking() {
+    if (!this.editingBooking) return;
+
+    const payload: any = {
+      startDate: this.editingBooking.startDate,
+      endDate: this.editingBooking.endDate,
+      persons: this.editingBooking.persons,
+      totalPrice: this.editingBooking.totalPrice,
+      status: this.editingBooking.status,
+    };
+
+    const res = await this.apiService.patch(
+      `bookings/${this.editingBooking.id}`,
+      payload
+    );
+    if (res.status === 200) {
+      alert('Foglalás mentve');
+      this.editingBooking = null;
+      this.loadBookings();
+    } else {
+      alert('Hiba történt a mentés során');
+    }
+  }
+
+  async deleteBooking(id: number) {
+    if (confirm('Biztosan törölni szeretnéd ezt a foglalást?')) {
+      const res = await this.apiService.delete('bookings', id);
+      if (res.status === 200) {
+        alert('Foglalás törölve!');
+        this.loadBookings();
+      } else {
+        alert('Hiba történt a törlés során.');
+      }
+    }
+  }
+
   paged<T>(items: T[], page: number) {
     const start = (page - 1) * this.pageSize;
     return items.slice(start, start + this.pageSize);
@@ -166,7 +323,6 @@ export class AdminComponent implements OnInit {
     return Math.max(1, Math.ceil(items.length / this.pageSize));
   }
 
-  // Compute nights between booking start and end safely for templates
   nights(b: any): number {
     if (!b || !b.startDate || !b.endDate) return 0;
     try {
@@ -215,8 +371,8 @@ export class AdminComponent implements OnInit {
   }
 
   async toggleAccActive(acc: any) {
-    const newVal = !(acc.active || acc.is_active);
-    const res = await this.apiService.update('accomodations', acc.id, {
+    const newVal = !this.isAccActive(acc);
+    const res = await this.apiService.patch(`accomodations/${acc.id}/toggle-active`, {
       active: newVal,
     });
     if (res.status === 200) {
@@ -269,10 +425,7 @@ export class AdminComponent implements OnInit {
         }
       }
 
-      // Use the first image as cover image
       this.newAccomodation.cover_image = this.uploadedImageUrls[0];
-
-      // Save accommodation to DB
       const res = await this.apiService.insert(
         'accomodations',
         this.newAccomodation
@@ -280,11 +433,6 @@ export class AdminComponent implements OnInit {
 
       if (res.status === 200) {
         const newAccomodationId = res.data.insertId;
-
-        // Save other images to accomodation_images table
-        // We need an endpoint for this or loop insert calls
-        // Assuming we have an endpoint or we can insert one by one
-        // Let's insert one by one for now using apiService.insert
 
         for (let i = 0; i < this.uploadedImageUrls.length; i++) {
           await this.apiService.insert('accomodation_images', {
@@ -337,7 +485,7 @@ export class AdminComponent implements OnInit {
   async loadReviews() {
     const res = await this.apiService.selectAll('reviews');
     if (res.status === 200) {
-      // map DB field `review_text` to `comment` expected in template
+      
       this.reviews = res.data.map((r: any) => ({
         ...r,
         comment: r.review_text,
@@ -402,7 +550,7 @@ export class AdminComponent implements OnInit {
     const res = await this.apiService.insert('rooms', payload);
     if (res.status === 200) {
       alert('Szoba hozzáadva');
-      // reset
+      // resetelés
       this.newRoom = {
         accomodation_id: null,
         title: '',

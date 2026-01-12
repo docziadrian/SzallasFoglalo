@@ -3,18 +3,33 @@ const router = express.Router();
 const db = require("./db");
 
 router.get("/", (req, res) => {
-  // If ?all=true is provided, return all accomodations (admin usage). Otherwise only active ones.
+
   const all = req.query.all === "true";
-  const sql = all
-    ? "SELECT * FROM accomodations"
-    : "SELECT * FROM accomodations WHERE (active = 1 OR is_active = 1)";
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error("Error fetching accomodations:", err);
-      return res.status(500).json({ error: "Internal server error" });
-    }
-    res.json(results);
-  });
+  if (all) {
+    return db.query("SELECT * FROM accomodations", (err, results) => {
+      if (err) {
+        console.error("Hiba szállások lekérésekor:", err);
+        return res.status(500).json({ error: "Belső szerver hiba" });
+      }
+      res.json(results);
+    });
+  }
+
+  const tryQuery = (sql, fallback) => {
+    db.query(sql, (err, results) => {
+      if (!err) return res.json(results);
+      if (err && err.code === "ER_BAD_FIELD_ERROR" && typeof fallback === "function") {
+        return fallback();
+      }
+      console.error("Hiba szállások lekérésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
+    });
+  };
+
+  tryQuery(
+    "SELECT * FROM accomodations WHERE active = 1",
+    () => tryQuery("SELECT * FROM accomodations WHERE is_active = 1")
+  );
 });
 
 router.get("/:id/features", (req, res) => {
@@ -28,8 +43,8 @@ router.get("/:id/features", (req, res) => {
   `;
   db.query(sql, [accomodationId], (err, results) => {
     if (err) {
-      console.error("Error fetching accomodation features:", err);
-      return res.status(500).json({ error: "Internal server error" });
+      console.error("Hiba szállás funkcióinak lekérésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
     }
     res.json(results);
   });
@@ -62,11 +77,8 @@ router.get("/:id/reviews", (req, res) => {
 
   db.query(sql, [accomodationId, limit, offset], (err, results) => {
     if (err) {
-      return res.status(500).json({
-        status: 500,
-        message: "Hiba a vélemények lekérésekor",
-        error: err,
-      });
+      console.error("Hiba a vélemények lekérésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
     }
     res.json({
       status: 200,
@@ -93,11 +105,8 @@ router.get("/:id/reviews/stats", (req, res) => {
 
   db.query(sql, [accomodationId, accomodationId], (err, results) => {
     if (err) {
-      return res.status(500).json({
-        status: 500,
-        message: "Hiba a statisztikák lekérésekor",
-        error: err,
-      });
+      console.error("Hiba a statisztikák lekérésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
     }
 
     const totalReviews = results.reduce((sum, r) => sum + r.count, 0);
@@ -126,8 +135,8 @@ router.get("/:id/images", (req, res) => {
     "SELECT * FROM accomodation_images WHERE accomodation_id = ? ORDER BY sub_index";
   db.query(sql, [accomodationId], (err, results) => {
     if (err) {
-      console.error("Error fetching accomodation images:", err);
-      return res.status(500).json({ error: "Internal server error" });
+      console.error("Hiba a szállás képeinek lekérésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
     }
     res.json(results);
   });
@@ -144,12 +153,12 @@ router.get("/:id/availability", (req, res) => {
 
   db.query(getAccommodationSql, [accomodationId], (err, accResults) => {
     if (err) {
-      console.error("Error fetching accommodation:", err);
-      return res.status(500).json({ error: "Internal server error" });
+      console.error("Hiba a szállás lekérésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
     }
 
     if (accResults.length === 0) {
-      return res.status(404).json({ error: "Accommodation not found" });
+      return res.status(404).json({ error: "Szállás nem található" });
     }
 
     const maxRooms = accResults[0].maxRooms;
@@ -181,8 +190,8 @@ router.get("/:id/availability", (req, res) => {
       [accomodationId, bookingEndDate.toISOString().split("T")[0], startDate],
       (err, bookings) => {
         if (err) {
-          console.error("Error fetching bookings:", err);
-          return res.status(500).json({ error: "Internal server error" });
+          console.error("Hiba a foglalások lekérésekor:", err);
+          return res.status(500).json({ error: "Belső szerver hiba" });
         }
 
         const availability = dates.map((date) => {
@@ -215,11 +224,11 @@ router.get("/:id", (req, res) => {
   const sql = "SELECT * FROM accomodations WHERE id = ?";
   db.query(sql, [accomodationId], (err, results) => {
     if (err) {
-      console.error("Error fetching accomodation:", err);
-      return res.status(500).json({ error: "Internal server error" });
+      console.error("Hiba a szállás lekérésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
     }
     if (results.length === 0) {
-      return res.status(404).json({ error: "Accomodation not found" });
+      return res.status(404).json({ error: "Szállás nem található" });
     }
     res.json(results[0]);
   });
@@ -237,11 +246,10 @@ router.post("/", (req, res) => {
     avgrating,
   } = req.body;
 
-  // Map frontend 'address' to 'street' and create 'full_address'
-  // 'max_guests' is removed from INSERT as it doesn't exist in the DB schema provided
+
   const street = address;
   const full_address = `${city}, ${address}`;
-  const title = name; // Use name as title
+  const title = name; 
 
   const sql = `INSERT INTO accomodations (name, city, street, full_address, priceforone, description, cover_image, avgrating, title) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   db.query(
@@ -259,10 +267,25 @@ router.post("/", (req, res) => {
     ],
     (err, result) => {
       if (err) {
-        console.error("Error inserting accomodation:", err);
-        return res.status(500).json({ error: "Internal server error" });
+        console.error("Hiba a szállás létrehozásakor:", err);
+        return res.status(500).json({ error: "Belső szerver hiba" });
       }
-      res.json({ insertId: result.insertId, message: "Accomodation created" });
+
+      const id = result.insertId;
+      const trySetActive = (col, cb) => {
+        db.query(
+          `UPDATE accomodations SET ${col} = 1 WHERE id = ?`,
+          [id],
+          (e) => cb(e)
+        );
+      };
+
+      trySetActive("active", (e1) => {
+        if (!e1) return res.json({ insertId: id, message: "Szállás létrehozva" });
+        trySetActive("is_active", (e2) => {
+          res.json({ insertId: id, message: "Szállás létrehozva" });
+        });
+      });
     }
   );
 });
@@ -272,17 +295,15 @@ router.delete("/:id", (req, res) => {
   const sql = "DELETE FROM accomodations WHERE id = ?";
   db.query(sql, [id], (err, result) => {
     if (err) {
-      console.error("Error deleting accomodation:", err);
-      return res.status(500).json({ error: "Internal server error" });
+      console.error("Hiba a szállás törlésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
     }
-    res.json({ message: "Accomodation deleted" });
+    res.json({ message: "Szállás törölve" });
   });
 });
 
-// Update accomodation fields
 router.patch("/:id", (req, res) => {
   const id = req.params.id;
-  // allow 'active' so admin can enable/disable accomodations via standard PATCH
   const allowed = [
     "name",
     "city",
@@ -322,19 +343,31 @@ router.patch("/:id", (req, res) => {
           details: err.message,
         });
       }
-      console.error("Error updating accomodation:", err);
-      return res.status(500).json({ error: "Internal server error" });
+      console.error("Hiba a szállás frissítésekor:", err);
+      return res.status(500).json({ error: "Belső szerver hiba" });
     }
-    res.json({ message: "Accomodation updated" });
+    res.json({ message: "Szállás frissítve" });
   });
 });
 
-// Toggle active/inactive for accomodation (tries 'active' then 'is_active')
+
 router.patch("/:id/toggle-active", (req, res) => {
   const id = req.params.id;
-  const value = req.body.active; // expected boolean
+  const raw = req.body.active;
+
+  let value = raw;
+  if (typeof raw === "string") {
+    const s = raw.trim().toLowerCase();
+    if (s === "true" || s === "1") value = true;
+    if (s === "false" || s === "0") value = false;
+  }
+  if (typeof raw === "number") {
+    if (raw === 1) value = true;
+    if (raw === 0) value = false;
+  }
+
   if (typeof value !== "boolean")
-    return res.status(400).json({ error: "Provide boolean `active` in body" });
+    return res.status(400).json({ error: "Érvénytelen active érték" });
 
   const tryUpdate = (col, cb) => {
     const sql = `UPDATE accomodations SET ${col} = ? WHERE id = ?`;
@@ -347,19 +380,19 @@ router.patch("/:id/toggle-active", (req, res) => {
   tryUpdate("active", (err, r) => {
     if (!err)
       return res.json({
-        message: "Accomodation active updated",
+        message: "Szállás aktív státusza frissítve",
         column: "active",
       });
     tryUpdate("is_active", (err2, r2) => {
       if (!err2)
         return res.json({
-          message: "Accomodation active updated",
+          message: "Szállás aktív státusza frissítve",
           column: "is_active",
         });
-      console.error("Error toggling active on accomodations:", err, err2);
+      console.error("Hiba a szállás aktív státuszának frissítésekor:", err, err2);
       res.status(400).json({
         error:
-          "No 'active' column found on accomodations table or update failed",
+          "Nem található 'active' oszlop a szállás táblában vagy a frissítés sikertelen",
       });
     });
   });

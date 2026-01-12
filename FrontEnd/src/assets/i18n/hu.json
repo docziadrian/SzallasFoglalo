@@ -1,0 +1,53 @@
+{
+  "COMMON": {
+    "LOGIN": "Bejelentkezés",
+    "REGISTER": "Regisztráció",
+    "LOGOUT": "Kijelentkezés",
+    "HOME": "Főoldal",
+    "SEARCH": "Keresés",
+    "BOOKING": "Foglalás",
+    "PRICE": "Ár",
+    "NIGHTS": "Éjszakák",
+    "GUESTS": "Vendégek",
+    "CHECK_IN": "Érkezés",
+    "CHECK_OUT": "Távozás",
+    "TOTAL_PRICE": "Teljes ár",
+    "DISCOUNT": "Kedvezmény",
+    "COUPON_CODE": "Kuponkód",
+    "APPLY_COUPON": "Kupon alkalmazása",
+    "RESERVATIONS": "Foglalásaim",
+    "ADMIN_PANEL": "Admin panel",
+    "USERS": "Felhasználók",
+    "ACCOMMODATIONS": "Szállások",
+    "BOOKINGS": "Foglalások",
+    "REVIEWS": "Vélemények",
+    "CANCEL": "Lemondás",
+    "SAVE": "Mentés",
+    "EDIT": "Szerkesztés",
+    "DELETE": "Törlés",
+    "BAN_USER": "Felhasználó kitiltása",
+    "UNBAN_USER": "Felhasználó feloldása",
+    "ACTIVE": "Aktív",
+    "INACTIVE": "Inaktív"
+  },
+  "MESSAGES": {
+    "LOGIN_REQUIRED": "Kérlek jelentkezz be a folytatáshoz!",
+    "INVALID_COUPON": "Érvénytelen kuponkód",
+    "COUPON_APPLIED": "Kupon sikeresen alkalmazva",
+    "BOOKING_SUCCESS": "Foglalás sikeresen létrehozva",
+    "BOOKING_CANCELLED": "Foglalás lemondva",
+    "USER_BANNED": "Felhasználó kitiltva",
+    "USER_UNBANNED": "Felhasználó feloldva",
+    "SAVED": "Sikeres mentés",
+    "ERROR_OCCURRED": "Hiba történt",
+    "CONFIRM_DELETE": "Biztosan törölni szeretnéd ezt az elemet?",
+    "NO_RESERVATIONS": "Még nincsenek foglalásaid.",
+    "LOADING": "Betöltés..."
+  },
+  "VALIDATION": {
+    "REQUIRED_FIELD": "Ez a mező kötelező",
+    "INVALID_EMAIL": "Érvénytelen e-mail cím",
+    "PASSWORD_MISMATCH": "A jelszavak nem egyeznek",
+    "MIN_PASSWORD_LENGTH": "A jelszónak legalább 8 karakter hosszúnak kell lennie"
+  }
+}

@@ -22,7 +22,7 @@ export class SessionService {
 
   public isAdmin(): boolean {
     const user = this.getUser();
-    return user?.role.role === 'admin';
+    return user?.role?.role === 'admin';
   }
 
   setUser(user: any): void {

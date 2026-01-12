@@ -1,0 +1,114 @@
+<div class="container mx-auto p-6 max-w-2xl">
+  <h1 class="text-3xl font-bold mb-6">Profilom</h1>
+
+  <div *ngIf="loading" class="text-center py-8">
+    <p>Betöltés...</p>
+  </div>
+
+  <div *ngIf="!loading && user" class="space-y-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="flex justify-between items-start mb-4">
+        <h2 class="text-xl font-semibold">Személyes adatok</h2>
+        <button *ngIf="!editMode" (click)="enableEditMode()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors">
+          Szerkesztés
+        </button>
+      </div>
+
+      <div *ngIf="!editMode" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Név</label>
+          <p class="text-gray-900">{{ user.name }}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">E-mail cím</label>
+          <p class="text-gray-900">{{ user.email }}</p>
+        </div>
+      </div>
+
+      <form *ngIf="editMode" (ngSubmit)="updateProfile()" class="space-y-4">
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Név</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            [(ngModel)]="editProfileForm.name"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">E-mail cím</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            [(ngModel)]="editProfileForm.email"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+        <div class="flex space-x-4">
+          <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition-colors">
+            Mentés
+          </button>
+          <button type="button" (click)="cancelEdit()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors">
+            Mégse
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold mb-4">Jelszó módosítása</h2>
+      <form (ngSubmit)="changePassword()" class="space-y-4">
+        <div>
+          <label for="currentPassword" class="block text-sm font-medium text-gray-700 mb-1">Jelenlegi jelszó</label>
+          <input
+            type="password"
+            id="currentPassword"
+            name="currentPassword"
+            [(ngModel)]="changePasswordForm.currentPassword"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+        <div>
+          <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-1">Új jelszó</label>
+          <input
+            type="password"
+            id="newPassword"
+            name="newPassword"
+            [(ngModel)]="changePasswordForm.newPassword"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+        <div>
+          <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">Új jelszó megerősítése</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            name="confirmPassword"
+            [(ngModel)]="changePasswordForm.confirmPassword"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+        <div class="flex space-x-4">
+          <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors">
+            Jelszó módosítása
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+      <h2 class="text-xl font-semibold mb-4 text-red-800">Fiók törlése</h2>
+      <p class="text-red-700 mb-4">A fiók törlése végleges és nem vonható vissza. Minden foglalásod és személyes adatod véglegesen törlésre kerül.</p>
+      <button (click)="deleteAccount()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition-colors">
+        Fiók törlése
+      </button>
+    </div>
+  </div>
+</div>

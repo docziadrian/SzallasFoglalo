@@ -103,7 +103,7 @@ export class AichatbotComponent implements OnInit, AfterViewChecked {
         this.shouldScroll = true;
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Hiba az üzenet küldésekor:', error);
       const errorMsg: AIMessage = {
         id: this.generateId(),
         text: 'Sajnos hiba történt. Kérlek próbáld újra!',
@@ -137,7 +137,7 @@ export class AichatbotComponent implements OnInit, AfterViewChecked {
         const cookieValue = chatCookie.split('=')[1];
         this.messages = JSON.parse(decodeURIComponent(cookieValue));
       } catch (error) {
-        console.error('Error loading messages from cookie:', error);
+        console.error('Hiba az üzenetek betöltésekor a cookie-ból:', error);
         this.messages = [];
       }
     }
@@ -160,7 +160,7 @@ export class AichatbotComponent implements OnInit, AfterViewChecked {
         this.chatMessagesContainer.nativeElement.scrollTop =
           this.chatMessagesContainer.nativeElement.scrollHeight;
       } catch (err) {
-        console.error('Scroll error:', err);
+        console.error('Görgetési hiba:', err);
       }
     }
   }
